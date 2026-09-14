@@ -69,7 +69,7 @@
   <script>
     // Config Supabase
     const SUPABASE_URL = "https://naadmqzcirevppkzydfz.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92; // <-- Ganti dengan Publishable/Anon Key Supabase Anda
+    const SUPABASE_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92; // <-- Tempel kode sb_publishable_... Anda di sini
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -105,44 +105,47 @@
 
     // Otomatis Deteksi Akun-Akun MT5 yang Ada di Database
     async function loadAccounts() {
-      const { data, error } = await supabase
-        .from('account_snapshots')
-        .select('account_number')
-        .order('created_at', { ascending: false })
-        .limit(100);
+      try {
+        const { data, error } = await supabase
+          .from('account_snapshots')
+          .select('account_number')
+          .order('created_at', { ascending: false })
+          .limit(100);
 
-      if (error || !data) {
-        console.error('Gagal mengambil daftar akun:', error);
-        return;
-      }
-
-      // Ambil daftar nomor akun unik
-      const uniqueAccounts = [...new Set(data.map(item => item.account_number))];
-      const selectEl = document.getElementById('accountSelect');
-
-      if (uniqueAccounts.length === 0) {
-        selectEl.innerHTML = '<option value="">Tidak ada akun terdeteksi</option>';
-        return;
-      }
-
-      const currentChoice = selectedAccount;
-      selectEl.innerHTML = '';
-
-      uniqueAccounts.forEach(acc => {
-        const option = document.createElement('option');
-        option.value = acc;
-        option.textContent = `Akun #${acc}`;
-        if (currentChoice && currentChoice == acc) {
-          option.selected = true;
+        if (error || !data) {
+          console.error('Gagal mengambil daftar akun:', error);
+          return;
         }
-        selectEl.appendChild(option);
-      });
 
-      if (!selectedAccount && uniqueAccounts.length > 0) {
-        selectedAccount = uniqueAccounts[0];
+        const uniqueAccounts = [...new Set(data.map(item => item.account_number))];
+        const selectEl = document.getElementById('accountSelect');
+
+        if (uniqueAccounts.length === 0) {
+          selectEl.innerHTML = '<option value="">Tidak ada akun terdeteksi</option>';
+          return;
+        }
+
+        const currentChoice = selectedAccount;
+        selectEl.innerHTML = '';
+
+        uniqueAccounts.forEach(acc => {
+          const option = document.createElement('option');
+          option.value = acc;
+          option.textContent = `Akun #${acc}`;
+          if (currentChoice && currentChoice == acc) {
+            option.selected = true;
+          }
+          selectEl.appendChild(option);
+        });
+
+        if (!selectedAccount && uniqueAccounts.length > 0) {
+          selectedAccount = uniqueAccounts[0];
+        }
+
+        fetchData();
+      } catch (err) {
+        console.error('Error loadAccounts:', err);
       }
-
-      fetchData();
     }
 
     // Fungsi Saat Pilih Akun Lain di Dropdown
@@ -156,46 +159,50 @@
     async function fetchData() {
       if (!selectedAccount) return;
 
-      const { data, error } = await supabase
-        .from('account_snapshots')
-        .select('*')
-        .eq('account_number', selectedAccount)
-        .order('created_at', { ascending: false })
-        .limit(30);
+      try {
+        const { data, error } = await supabase
+          .from('account_snapshots')
+          .select('*')
+          .eq('account_number', selectedAccount)
+          .order('created_at', { ascending: false })
+          .limit(30);
 
-      if (error) {
-        console.error('Error Supabase:', error);
-        return;
-      }
+        if (error) {
+          console.error('Error Supabase:', error);
+          return;
+        }
 
-      if (data && data.length > 0) {
-        const latest = data[0];
-        document.getElementById('val-balance').textContent = `$${Number(latest.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-        document.getElementById('val-equity').textContent = `$${Number(latest.equity).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-        
-        const profit = Number(latest.daily_profit_nominal || 0);
-        const percent = Number(latest.daily_profit_percent || 0);
-        
-        const profitEl = document.getElementById('val-profit');
-        profitEl.textContent = `${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}`;
-        profitEl.className = `text-2xl md:text-3xl font-bold mt-2 ${profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+        if (data && data.length > 0) {
+          const latest = data[0];
+          document.getElementById('val-balance').textContent = `$${Number(latest.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+          document.getElementById('val-equity').textContent = `$${Number(latest.equity).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+          
+          const profit = Number(latest.daily_profit_nominal || 0);
+          const percent = Number(latest.daily_profit_percent || 0);
+          
+          const profitEl = document.getElementById('val-profit');
+          profitEl.textContent = `${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}`;
+          profitEl.className = `text-2xl md:text-3xl font-bold mt-2 ${profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
 
-        const percentEl = document.getElementById('val-percent');
-        percentEl.textContent = `${percent >= 0 ? '+' : ''}${percent.toFixed(2)}%`;
-        percentEl.className = `text-2xl md:text-3xl font-bold mt-2 ${percent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+          const percentEl = document.getElementById('val-percent');
+          percentEl.textContent = `${percent >= 0 ? '+' : ''}${percent.toFixed(2)}%`;
+          percentEl.className = `text-2xl md:text-3xl font-bold mt-2 ${percent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
 
-        // Update Grafik Equity
-        const historyData = [...data].reverse();
-        chart.data.labels = historyData.map(row => new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-        chart.data.datasets[0].data = historyData.map(row => row.equity);
-        chart.update();
+          // Update Grafik Equity
+          const historyData = [...data].reverse();
+          chart.data.labels = historyData.map(row => new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+          chart.data.datasets[0].data = historyData.map(row => row.equity);
+          chart.update();
+        }
+      } catch (err) {
+        console.error('Error fetchData:', err);
       }
     }
 
     // Jalankan Otomatis
     loadAccounts();
-    setInterval(loadAccounts, 10000); // Pindai akun baru setiap 10 detik
-    setInterval(fetchData, 5000);     // Update data real-time setiap 5 detik
+    setInterval(loadAccounts, 10000);
+    setInterval(fetchData, 5000);
   </script>
 </body>
 </html>
