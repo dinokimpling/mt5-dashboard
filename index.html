@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MT5 Realtime Monitor - Multi Account</title>
-  <!-- Tailwind CSS & Chart.js & Supabase CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -20,7 +19,6 @@
         <h1 class="text-xl font-bold text-slate-100">MT5 Monitor</h1>
       </div>
 
-      <!-- Dropdown Pilih Akun MT5 -->
       <div class="flex items-center space-x-2 w-full sm:w-auto">
         <label for="accountSelect" class="text-xs text-slate-400 font-medium whitespace-nowrap">Pilih Akun:</label>
         <select id="accountSelect" onchange="onAccountChange()" class="bg-slate-900 text-slate-100 border border-slate-700 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block w-full p-2.5 cursor-pointer">
@@ -31,22 +29,18 @@
 
     <!-- Cards Grid -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <!-- Balance -->
       <div class="bg-slate-800 p-5 rounded-xl border border-slate-700/80 shadow">
         <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">BALANCE</p>
         <p id="val-balance" class="text-2xl md:text-3xl font-bold mt-2 text-white">$0.00</p>
       </div>
-      <!-- Equity -->
       <div class="bg-slate-800 p-5 rounded-xl border border-slate-700/80 shadow">
         <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">EQUITY</p>
         <p id="val-equity" class="text-2xl md:text-3xl font-bold mt-2 text-sky-400">$0.00</p>
       </div>
-      <!-- Daily Profit -->
       <div class="bg-slate-800 p-5 rounded-xl border border-slate-700/80 shadow">
         <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">PROFIT HARI INI</p>
         <p id="val-profit" class="text-2xl md:text-3xl font-bold mt-2 text-emerald-400">+$0.00</p>
       </div>
-      <!-- Percentage -->
       <div class="bg-slate-800 p-5 rounded-xl border border-slate-700/80 shadow">
         <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">PERSENTASE HARIAN</p>
         <p id="val-percent" class="text-2xl md:text-3xl font-bold mt-2 text-emerald-400">+0.00%</p>
@@ -67,15 +61,12 @@
   </div>
 
   <script>
-    // Config Supabase
     const SUPABASE_URL = "https://naadmqzcirevppkzydfz.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92"; // <-- Tempel kode sb_publishable_... Anda di sini
+    const SUPABASE_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
     let selectedAccount = null;
 
-    // Chart Setup
     const ctx = document.getElementById('equityChart').getContext('2d');
     const chart = new Chart(ctx, {
       type: 'line',
@@ -103,8 +94,8 @@
       }
     });
 
-    // Otomatis Deteksi Akun-Akun MT5 yang Ada di Database
     async function loadAccounts() {
+      const selectEl = document.getElementById('accountSelect');
       try {
         const { data, error } = await supabase
           .from('account_snapshots')
@@ -112,19 +103,17 @@
           .order('created_at', { ascending: false })
           .limit(100);
 
-        if (error || !data) {
-          console.error('Gagal mengambil daftar akun:', error);
+        if (error) {
+          selectEl.innerHTML = `<option value="">Error: ${error.message}</option>`;
+          return;
+        }
+
+        if (!data || data.length === 0) {
+          selectEl.innerHTML = '<option value="">Tabel masih kosong</option>';
           return;
         }
 
         const uniqueAccounts = [...new Set(data.map(item => item.account_number))];
-        const selectEl = document.getElementById('accountSelect');
-
-        if (uniqueAccounts.length === 0) {
-          selectEl.innerHTML = '<option value="">Tidak ada akun terdeteksi</option>';
-          return;
-        }
-
         const currentChoice = selectedAccount;
         selectEl.innerHTML = '';
 
@@ -144,18 +133,16 @@
 
         fetchData();
       } catch (err) {
-        console.error('Error loadAccounts:', err);
+        selectEl.innerHTML = `<option value="">Error JS: ${err.message}</option>`;
       }
     }
 
-    // Fungsi Saat Pilih Akun Lain di Dropdown
     function onAccountChange() {
       const selectEl = document.getElementById('accountSelect');
       selectedAccount = selectEl.value;
       fetchData();
     }
 
-    // Ambil Data Snapshot per Akun Terpilih
     async function fetchData() {
       if (!selectedAccount) return;
 
@@ -167,39 +154,32 @@
           .order('created_at', { ascending: false })
           .limit(30);
 
-        if (error) {
-          console.error('Error Supabase:', error);
-          return;
-        }
+        if (error || !data || data.length === 0) return;
 
-        if (data && data.length > 0) {
-          const latest = data[0];
-          document.getElementById('val-balance').textContent = `$${Number(latest.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-          document.getElementById('val-equity').textContent = `$${Number(latest.equity).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-          
-          const profit = Number(latest.daily_profit_nominal || 0);
-          const percent = Number(latest.daily_profit_percent || 0);
-          
-          const profitEl = document.getElementById('val-profit');
-          profitEl.textContent = `${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}`;
-          profitEl.className = `text-2xl md:text-3xl font-bold mt-2 ${profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+        const latest = data[0];
+        document.getElementById('val-balance').textContent = `$${Number(latest.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        document.getElementById('val-equity').textContent = `$${Number(latest.equity).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        
+        const profit = Number(latest.daily_profit_nominal || 0);
+        const percent = Number(latest.daily_profit_percent || 0);
+        
+        const profitEl = document.getElementById('val-profit');
+        profitEl.textContent = `${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}`;
+        profitEl.className = `text-2xl md:text-3xl font-bold mt-2 ${profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
 
-          const percentEl = document.getElementById('val-percent');
-          percentEl.textContent = `${percent >= 0 ? '+' : ''}${percent.toFixed(2)}%`;
-          percentEl.className = `text-2xl md:text-3xl font-bold mt-2 ${percent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+        const percentEl = document.getElementById('val-percent');
+        percentEl.textContent = `${percent >= 0 ? '+' : ''}${percent.toFixed(2)}%`;
+        percentEl.className = `text-2xl md:text-3xl font-bold mt-2 ${percent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
 
-          // Update Grafik Equity
-          const historyData = [...data].reverse();
-          chart.data.labels = historyData.map(row => new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-          chart.data.datasets[0].data = historyData.map(row => row.equity);
-          chart.update();
-        }
+        const historyData = [...data].reverse();
+        chart.data.labels = historyData.map(row => new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        chart.data.datasets[0].data = historyData.map(row => row.equity);
+        chart.update();
       } catch (err) {
-        console.error('Error fetchData:', err);
+        console.error(err);
       }
     }
 
-    // Jalankan Otomatis
     loadAccounts();
     setInterval(loadAccounts, 10000);
     setInterval(fetchData, 5000);
