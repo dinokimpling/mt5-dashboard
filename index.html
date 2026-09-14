@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MT5 Realtime Monitor</title>
+  <title>MT5 Realtime Monitor - Multi Account</title>
   <!-- Tailwind CSS & Chart.js & Supabase CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -13,15 +13,20 @@
 
   <div class="max-w-6xl mx-auto space-y-6">
     
-    <!-- Header -->
-    <div class="flex justify-between items-center bg-slate-800/80 p-4 rounded-xl border border-slate-700 shadow-lg">
+    <!-- Header dengan Dropdown Pilih Akun -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-800/80 p-4 rounded-xl border border-slate-700 shadow-lg gap-4">
       <div class="flex items-center space-x-3">
         <span class="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"></span>
-        <h1 class="text-xl font-bold text-slate-100">MT5 Monitor <span id="acc-num" class="text-slate-400 text-sm font-normal">#160087856</span></h1>
+        <h1 class="text-xl font-bold text-slate-100">MT5 Monitor</h1>
       </div>
-      <span id="status-badge" class="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-        Status: Connected
-      </span>
+
+      <!-- Dropdown Pilih Akun MT5 -->
+      <div class="flex items-center space-x-2 w-full sm:w-auto">
+        <label for="accountSelect" class="text-xs text-slate-400 font-medium whitespace-nowrap">Pilih Akun:</label>
+        <select id="accountSelect" onchange="onAccountChange()" class="bg-slate-900 text-slate-100 border border-slate-700 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block w-full p-2.5 cursor-pointer">
+          <option value="">Memuat daftar akun...</option>
+        </select>
+      </div>
     </div>
 
     <!-- Cards Grid -->
@@ -64,10 +69,11 @@
   <script>
     // Config Supabase
     const SUPABASE_URL = "https://naadmqzcirevppkzydfz.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92; // <-- Masukkan Anon Key Supabase di sini
-    const TARGET_ACCOUNT = 160087856;
+    const SUPABASE_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92; // <-- Ganti dengan Publishable/Anon Key Supabase Anda
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let selectedAccount = null;
 
     // Chart Setup
     const ctx = document.getElementById('equityChart').getContext('2d');
@@ -97,12 +103,63 @@
       }
     });
 
-    // Fetch Data Function
+    // Otomatis Deteksi Akun-Akun MT5 yang Ada di Database
+    async function loadAccounts() {
+      const { data, error } = await supabase
+        .from('account_snapshots')
+        .select('account_number')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error || !data) {
+        console.error('Gagal mengambil daftar akun:', error);
+        return;
+      }
+
+      // Ambil daftar nomor akun unik
+      const uniqueAccounts = [...new Set(data.map(item => item.account_number))];
+      const selectEl = document.getElementById('accountSelect');
+
+      if (uniqueAccounts.length === 0) {
+        selectEl.innerHTML = '<option value="">Tidak ada akun terdeteksi</option>';
+        return;
+      }
+
+      const currentChoice = selectedAccount;
+      selectEl.innerHTML = '';
+
+      uniqueAccounts.forEach(acc => {
+        const option = document.createElement('option');
+        option.value = acc;
+        option.textContent = `Akun #${acc}`;
+        if (currentChoice && currentChoice == acc) {
+          option.selected = true;
+        }
+        selectEl.appendChild(option);
+      });
+
+      if (!selectedAccount && uniqueAccounts.length > 0) {
+        selectedAccount = uniqueAccounts[0];
+      }
+
+      fetchData();
+    }
+
+    // Fungsi Saat Pilih Akun Lain di Dropdown
+    function onAccountChange() {
+      const selectEl = document.getElementById('accountSelect');
+      selectedAccount = selectEl.value;
+      fetchData();
+    }
+
+    // Ambil Data Snapshot per Akun Terpilih
     async function fetchData() {
+      if (!selectedAccount) return;
+
       const { data, error } = await supabase
         .from('account_snapshots')
         .select('*')
-        .eq('account_number', TARGET_ACCOUNT)
+        .eq('account_number', selectedAccount)
         .order('created_at', { ascending: false })
         .limit(30);
 
@@ -127,7 +184,7 @@
         percentEl.textContent = `${percent >= 0 ? '+' : ''}${percent.toFixed(2)}%`;
         percentEl.className = `text-2xl md:text-3xl font-bold mt-2 ${percent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
 
-        // Update Chart
+        // Update Grafik Equity
         const historyData = [...data].reverse();
         chart.data.labels = historyData.map(row => new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         chart.data.datasets[0].data = historyData.map(row => row.equity);
@@ -135,8 +192,10 @@
       }
     }
 
-    fetchData();
-    setInterval(fetchData, 5000);
+    // Jalankan Otomatis
+    loadAccounts();
+    setInterval(loadAccounts, 10000); // Pindai akun baru setiap 10 detik
+    setInterval(fetchData, 5000);     // Update data real-time setiap 5 detik
   </script>
 </body>
 </html>
