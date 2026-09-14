@@ -20,7 +20,7 @@
     /* Grid Stats */
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
     .card { background-color: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; }
-    .card-label { font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; tracking: 1px; }
+    .card-label { font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
     .stat-value { font-size: 1.75rem; font-weight: bold; margin-top: 8px; }
     
     .text-sky { color: #38bdf8; }
@@ -120,7 +120,7 @@
     async function loadAccounts() {
       const selectEl = document.getElementById('accountSelect');
       try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/account_snapshots?select=account_number&order=created_at.desc&limit=100`, {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/account_snapshots?select=account_number&order=updated_at.desc&limit=100`, {
           headers: {
             'apikey': SUPABASE_KEY,
             'Authorization': `Bearer ${SUPABASE_KEY}`
@@ -168,7 +168,7 @@
       if (!selectedAccount) return;
 
       try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/account_snapshots?account_number=eq.${selectedAccount}&order=created_at.desc&limit=30`, {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/account_snapshots?account_number=eq.${selectedAccount}&order=updated_at.desc&limit=30`, {
           headers: {
             'apikey': SUPABASE_KEY,
             'Authorization': `Bearer ${SUPABASE_KEY}`
@@ -195,7 +195,7 @@
         percentEl.className = `stat-value ${percent >= 0 ? 'text-green' : 'text-red'}`;
 
         const historyData = [...data].reverse();
-        chart.data.labels = historyData.map(row => new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        chart.data.labels = historyData.map(row => new Date(row.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         chart.data.datasets[0].data = historyData.map(row => row.equity);
         chart.update();
       } catch (err) {
