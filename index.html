@@ -31,6 +31,14 @@
     .chart-card { background-color: #1e293b; padding: 24px; border-radius: 12px; border: 1px solid #334155; display: flex; flex-direction: column; gap: 16px; }
     .chart-header { display: flex; justify-content: space-between; align-items: center; }
     .chart-container { position: relative; height: 320px; width: 100%; }
+
+    /* Table Positions */
+    .table-card { background-color: #1e293b; padding: 24px; border-radius: 12px; border: 1px solid #334155; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; }
+    th { padding: 12px; color: #94a3b8; font-weight: 600; border-bottom: 1px solid #334155; }
+    td { padding: 12px; border-bottom: 1px solid #334155/60; }
+    .badge-buy { background-color: rgba(16, 185, 129, 0.2); color: #10b981; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 0.75rem; }
+    .badge-sell { background-color: rgba(244, 63, 94, 0.2); color: #f43f5e; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 0.75rem; }
   </style>
 </head>
 <body>
@@ -80,6 +88,30 @@
         <canvas id="equityChart"></canvas>
       </div>
     </div>
+
+    <!-- Table Open Positions -->
+    <div class="table-card">
+      <h3 style="font-size: 1rem; color: #e2e8f0; margin-bottom: 16px;">Transaksi Aktif (Open Positions)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Ticket</th>
+            <th>Symbol</th>
+            <th>Tipe</th>
+            <th>Lot</th>
+            <th>Harga Open</th>
+            <th>SL</th>
+            <th>TP</th>
+            <th>Profit ($)</th>
+          </tr>
+        </thead>
+        <tbody id="positionsTable">
+          <tr>
+            <td colspan="8" style="text-align: center; color: #94a3b8;">Memuat transaksi aktif...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <script>
@@ -88,7 +120,7 @@
 
     let selectedAccount = null;
 
-    // Inisialisasi Chart.js
+    // Chart.js Setup
     const ctx = document.getElementById('equityChart').getContext('2d');
     const chart = new Chart(ctx, {
       type: 'line',
@@ -116,15 +148,11 @@
       }
     });
 
-    // Mengambil daftar nomor akun unik langsung via REST API
     async function loadAccounts() {
       const selectEl = document.getElementById('accountSelect');
       try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/account_snapshots?select=account_number&order=updated_at.desc&limit=100`, {
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`
-          }
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
 
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
@@ -152,6 +180,7 @@
         }
 
         fetchData();
+        fetchPositions();
       } catch (err) {
         selectEl.innerHTML = `<option value="">Error: ${err.message}</option>`;
       }
@@ -161,18 +190,15 @@
       const selectEl = document.getElementById('accountSelect');
       selectedAccount = selectEl.value;
       fetchData();
+      fetchPositions();
     }
 
-    // Mengambil data snapshot akun yang dipilih
     async function fetchData() {
       if (!selectedAccount) return;
 
       try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/account_snapshots?account_number=eq.${selectedAccount}&order=updated_at.desc&limit=30`, {
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`
-          }
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
 
         if (!res.ok) return;
@@ -182,12 +208,31 @@
         const latest = data[0];
         document.getElementById('val-balance').textContent = `$${Number(latest.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
         document.getElementById('val-equity').textContent = `$${Number(latest.equity).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-        
-        const profit = Number(latest.daily_profit_nominal || 0);
-        const percent = Number(latest.daily_profit_percent || 0);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayISO = today.toISOString();
+
+        const resToday = await fetch(`${SUPABASE_URL}/rest/v1/account_snapshots?account_number=eq.${selectedAccount}&updated_at=gte.${todayISO}&order=updated_at.asc&limit=1`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+
+        let startBalance = Number(latest.balance);
+        if (resToday.ok) {
+          const todayData = await resToday.json();
+          if (todayData && todayData.length > 0) {
+            startBalance = Number(todayData[0].balance);
+          } else {
+            startBalance = Number(data[data.length - 1].balance);
+          }
+        }
+
+        const currentEquity = Number(latest.equity);
+        const profit = currentEquity - startBalance;
+        const percent = startBalance > 0 ? (profit / startBalance) * 100 : 0;
         
         const profitEl = document.getElementById('val-profit');
-        profitEl.textContent = `${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}`;
+        profitEl.textContent = `${profit >= 0 ? '+' : ''}$${profit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         profitEl.className = `stat-value ${profit >= 0 ? 'text-green' : 'text-red'}`;
 
         const percentEl = document.getElementById('val-percent');
@@ -203,9 +248,52 @@
       }
     }
 
+    async function fetchPositions() {
+      if (!selectedAccount) return;
+
+      const posTableBody = document.getElementById('positionsTable');
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/open_positions?account_number=eq.${selectedAccount}&order=ticket.desc`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+
+        if (!res.ok) return;
+        const positions = await res.json();
+
+        if (!positions || positions.length === 0) {
+          posTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8;">Tidak ada transaksi aktif (0 posisi open)</td></tr>';
+          return;
+        }
+
+        posTableBody.innerHTML = '';
+        positions.forEach(pos => {
+          const p = Number(pos.profit || 0);
+          const pClass = p >= 0 ? 'text-green' : 'text-red';
+          const typeBadge = pos.type.toUpperCase() === 'BUY' ? '<span class="badge-buy">BUY</span>' : '<span class="badge-sell">SELL</span>';
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>#${pos.ticket}</td>
+            <td><strong>${pos.symbol}</strong></td>
+            <td>${typeBadge}</td>
+            <td>${Number(pos.volume).toFixed(2)}</td>
+            <td>${Number(pos.open_price).toFixed(2)}</td>
+            <td>${Number(pos.sl || 0).toFixed(2)}</td>
+            <td>${Number(pos.tp || 0).toFixed(2)}</td>
+            <td class="${pClass}"><strong>${p >= 0 ? '+' : ''}$${p.toFixed(2)}</strong></td>
+          `;
+          posTableBody.appendChild(row);
+        });
+      } catch (err) {
+        console.error('Error positions:', err);
+      }
+    }
+
     loadAccounts();
     setInterval(loadAccounts, 10000);
     setInterval(fetchData, 5000);
+    setInterval(fetchPositions, 5000);
   </script>
 </body>
 </html>
