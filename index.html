@@ -16,8 +16,12 @@
     .auth-card h2 { margin-bottom: 20px; text-align: center; }
     .input-group { margin-bottom: 15px; }
     .input-group label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px; }
-    .input-group input { width: 100%; padding: 10px; background-color: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #fff; outline: none; }
-    .btn-primary { width: 100%; background-color: #38bdf8; color: #0f172a; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    .input-group input[type="email"], .input-group input[type="password"] { width: 100%; padding: 10px; background-color: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #fff; outline: none; }
+    .checkbox-group { display: flex; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; }
+    .checkbox-group input { width: 16px; height: 16px; cursor: pointer; accent-color: #38bdf8; }
+    .checkbox-group label { margin-bottom: 0; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; }
+
+    .btn-primary { width: 100%; background-color: #38bdf8; color: #0f172a; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 15px; }
     .btn-secondary { width: 100%; background-color: transparent; color: #94a3b8; border: 1px solid #334155; padding: 8px; border-radius: 6px; cursor: pointer; margin-top: 8px; font-size: 0.85rem; }
 
     /* Dashboard Layout */
@@ -56,6 +60,13 @@
       <label>Password</label>
       <input type="password" id="password" placeholder="••••••••">
     </div>
+    
+    <!-- Opsi Remember Me / Ingat Saya -->
+    <div class="checkbox-group">
+      <input type="checkbox" id="rememberMe" checked>
+      <label for="rememberMe">Ingat saya (Auto Login)</label>
+    </div>
+
     <button class="btn-primary" onclick="handleAuth()">LOGIN</button>
     <button class="btn-secondary" onclick="toggleAuthMode()" id="toggleBtn">Belum punya akun? Daftar</button>
   </div>
@@ -128,12 +139,26 @@
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
 
-    // Check Session On Load
+    // Inisialisasi Autentikasi & Auto-Login
     async function initAuth() {
+      // 1. Cek Sesi Supabase Aktif
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
         currentUser = session.user;
         showDashboard();
+        return;
+      }
+
+      // 2. Jika Sesi Habis, Cek Memori "Ingat Saya"
+      const savedEmail = localStorage.getItem('mt5_saved_email');
+      const savedPass = localStorage.getItem('mt5_saved_pass');
+      
+      if (savedEmail && savedPass) {
+        document.getElementById('email').value = savedEmail;
+        document.getElementById('password').value = savedPass;
+        document.getElementById('rememberMe').checked = true;
+        // Auto Login Otomatis
+        handleAuth(true);
       }
     }
 
@@ -143,11 +168,15 @@
       document.getElementById('toggleBtn').textContent = isSignUp ? "Sudah punya akun? Login" : "Belum punya akun? Daftar";
     }
 
-    async function handleAuth() {
+    async function handleAuth(isAutoLogin = false) {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
+      const remember = document.getElementById('rememberMe').checked;
 
-      if (!email || !password) return alert("Email dan password wajib diisi!");
+      if (!email || !password) {
+        if (!isAutoLogin) alert("Email dan password wajib diisi!");
+        return;
+      }
 
       if (isSignUp) {
         const { data, error } = await supabaseClient.auth.signUp({ email, password });
@@ -155,15 +184,30 @@
         else alert("Pendaftaran berhasil! Silakan login.");
       } else {
         const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) alert(error.message);
-        else {
+        
+        if (error) {
+          if (!isAutoLogin) alert(error.message);
+        } else {
           currentUser = data.user;
+          
+          // Simpan atau Hapus Login berdasarkan Opsi "Ingat Saya"
+          if (remember) {
+            localStorage.setItem('mt5_saved_email', email);
+            localStorage.setItem('mt5_saved_pass', password);
+          } else {
+            localStorage.removeItem('mt5_saved_email');
+            localStorage.removeItem('mt5_saved_pass');
+          }
+          
           showDashboard();
         }
       }
     }
 
     async function handleLogout() {
+      // Hapus memori simpanan saat logout manual
+      localStorage.removeItem('mt5_saved_email');
+      localStorage.removeItem('mt5_saved_pass');
       await supabaseClient.auth.signOut();
       window.location.reload();
     }
@@ -209,7 +253,6 @@
     }
 
     async function fetchSnapshots() {
-      // Ambil 200 riwayat snapshot terakhir agar akumulasi grafik presisi
       let query = supabaseClient.from('account_snapshots').select('*').eq('user_id', currentUser.id).order('updated_at', { ascending: false }).limit(200);
       if (selectedAccount !== "ALL") query = query.eq('account_number', selectedAccount);
 
@@ -217,7 +260,6 @@
       if (!data || data.length === 0) return;
 
       if (selectedAccount === "ALL") {
-        // 1. Hitung total gabungan untuk Kartu Metrik atas
         const latestPerAcc = {};
         data.forEach(row => { if(!latestPerAcc[row.account_number]) latestPerAcc[row.account_number] = row; });
         
@@ -232,7 +274,6 @@
         document.getElementById('val-floating').textContent = `$${sumFloat.toFixed(2)}`;
         document.getElementById('val-margin').textContent = `$${sumFreeM.toFixed(2)}`;
 
-        // 2. Akumulasi Total Equity Banyak Akun untuk Grafik Gabungan (Mencegah Zigzag)
         const historyData = [...data].reverse();
         let runningEquity = {}; 
         let combinedChartData = [];
@@ -253,7 +294,6 @@
         chart.update();
 
       } else {
-        // 3. Tampilan untuk Akun Tunggal
         const latest = data[0];
         document.getElementById('val-balance').textContent = `$${Number(latest.balance).toFixed(2)}`;
         document.getElementById('val-equity').textContent = `$${Number(latest.equity).toFixed(2)}`;
