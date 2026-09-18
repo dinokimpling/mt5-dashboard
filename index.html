@@ -18,7 +18,7 @@
     .input-group label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px; }
     .input-group input[type="email"], .input-group input[type="password"], .input-group input[type="text"] { width: 100%; padding: 10px; background-color: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #fff; outline: none; }
     
-    /* Wrapper untuk Input Password & Ikon Mata */
+    /* Wrapper Password */
     .password-wrapper { position: relative; width: 100%; }
     .password-wrapper input { padding-right: 40px; }
     .toggle-password { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; user-select: none; font-size: 1.1rem; opacity: 0.7; transition: opacity 0.2s; }
@@ -28,17 +28,25 @@
     .checkbox-group input { width: 16px; height: 16px; cursor: pointer; accent-color: #38bdf8; }
     .checkbox-group label { margin-bottom: 0; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; }
 
+    /* Tombol Aksi */
     .btn-primary { width: 100%; background-color: #38bdf8; color: #0f172a; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 15px; }
     .btn-secondary { width: 100%; background-color: transparent; color: #94a3b8; border: 1px solid #334155; padding: 8px; border-radius: 6px; cursor: pointer; margin-top: 8px; font-size: 0.85rem; }
+    
+    /* Tombol Perintah Darurat */
+    .btn-warning { background-color: #f59e0b; color: #0f172a; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.85rem; }
+    .btn-warning:hover { background-color: #d97706; }
+    .btn-orange { background-color: #ea580c; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.85rem; }
+    .btn-orange:hover { background-color: #c2410c; }
+    .btn-danger { background-color: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.85rem; }
+    .btn-danger:hover { background-color: #dc2626; }
 
-    /* Dashboard Layout */
+    /* Layout Dasbor */
     .header { background-color: #1e293b; padding: 16px 24px; border-radius: 12px; border: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
     .header-title { display: flex; align-items: center; gap: 10px; font-size: 1.25rem; font-weight: bold; }
     .dot { width: 10px; height: 10px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
     select { background-color: #0f172a; color: #fff; border: 1px solid #334155; padding: 8px 14px; border-radius: 8px; font-size: 0.9rem; outline: none; }
     
     .user-info-box { background-color: rgba(56, 189, 248, 0.1); border: 1px solid #38bdf8; padding: 12px; border-radius: 8px; font-size: 0.85rem; color: #38bdf8; display: flex; justify-content: space-between; align-items: center; }
-    .btn-danger { background-color: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
     .card { background-color: #1e293b; padding: 18px; border-radius: 12px; border: 1px solid #334155; }
@@ -71,7 +79,6 @@
       </div>
     </div>
     
-    <!-- Opsi Remember Me / Ingat Saya -->
     <div class="checkbox-group">
       <input type="checkbox" id="rememberMe" checked>
       <label for="rememberMe">Ingat saya (Auto Login)</label>
@@ -88,16 +95,20 @@
         <div class="dot"></div>
         <span>MT5 Terminal Center</span>
       </div>
-      <div style="display: flex; gap: 12px; align-items: center;">
+      
+      <!-- Tombol Kontrol / Perintah Remote -->
+      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
         <select id="accountSelect" onchange="onAccountChange()">
           <option value="">Memuat akun...</option>
         </select>
-        <button class="btn-danger" onclick="triggerCloseAll()">CLOSE ALL POSITIONS</button>
+        <button class="btn-warning" onclick="triggerCloseCommand('CLOSE_BUY')">CLOSE BUY</button>
+        <button class="btn-orange" onclick="triggerCloseCommand('CLOSE_SELL')">CLOSE SELL</button>
+        <button class="btn-danger" onclick="triggerCloseCommand('CLOSE_ALL')">CLOSE ALL</button>
         <button class="btn-secondary" onclick="handleLogout()" style="width: auto;">Logout</button>
       </div>
     </div>
 
-    <!-- Banner User ID untuk EA -->
+    <!-- Banner User ID -->
     <div class="user-info-box">
       <div><strong>Kode USER ID Anda (Pasang di EA MT5):</strong> <span id="displayUserId" style="font-family: monospace; font-size: 1rem;">-</span></div>
       <button class="btn-secondary" style="width: auto; padding: 4px 10px;" onclick="copyUserId()">Salin ID</button>
@@ -149,7 +160,6 @@
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
 
-    // Fungsi Toggle Intip Password
     function togglePasswordVisibility() {
       const passInput = document.getElementById('password');
       const toggleBtn = document.getElementById('togglePasswordBtn');
@@ -162,7 +172,6 @@
       }
     }
 
-    // Inisialisasi Autentikasi & Auto-Login
     async function initAuth() {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
@@ -374,20 +383,25 @@
       `).join('');
     }
 
-    async function triggerCloseAll() {
-      const targetAcc = selectedAccount === "ALL" ? prompt("Masukkan nomor akun khusus untuk Close All:") : selectedAccount;
+    // Fungsi Pengiriman Perintah Darurat (CLOSE BUY / CLOSE SELL / CLOSE ALL)
+    async function triggerCloseCommand(cmdType) {
+      const targetAcc = selectedAccount === "ALL" ? prompt(`Masukkan nomor akun khusus untuk ${cmdType.replace('_', ' ')}:`) : selectedAccount;
       if (!targetAcc) return;
 
-      if (!confirm(`Tutup paksa posisi di akun #${targetAcc}?`)) return;
+      let labelText = "SEMUA POSISI";
+      if (cmdType === "CLOSE_BUY") labelText = "POSISI BUY";
+      if (cmdType === "CLOSE_SELL") labelText = "POSISI SELL";
+
+      if (!confirm(`Apakah Anda yakin ingin menutup ${labelText} di akun #${targetAcc}?`)) return;
 
       await supabaseClient.from('remote_commands').insert({
         user_id: currentUser.id,
         account_number: targetAcc,
-        command: 'CLOSE_ALL',
+        command: cmdType,
         status: 'PENDING'
       });
 
-      alert("Perintah DARURAT CLOSE ALL telah dikirim ke MT5!");
+      alert(`Perintah DARURAT ${cmdType.replace('_', ' ')} telah dikirim ke MT5!`);
     }
 
     initAuth();
