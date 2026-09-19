@@ -20,7 +20,21 @@
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     </script>
 
-    <div class="max-w-7xl mx-auto space-y-6">
+    <!-- MODAL LOGIN (TAMPIL JIKA BELUM LOG IN) -->
+    <div id="loginModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full space-y-4 shadow-2xl">
+            <h2 class="text-xl font-bold text-white text-center">Log In Dasbor MT5</h2>
+            <p class="text-xs text-slate-400 text-center">Masukkan Kode USER ID Anda yang terpasang pada EA MT5.</p>
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">USER ID</label>
+                <input type="text" id="inputUserId" placeholder="Contoh: 31bf67f5-4e7e-40c0-9f9e-ad29608d56a9" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 font-mono">
+            </div>
+            <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-lg text-sm transition">Masuk ke Dasbor</button>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <div id="dashboardContent" class="max-w-7xl mx-auto space-y-6">
 
         <!-- HEADER & CONTROL BAR -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-lg">
@@ -44,12 +58,16 @@
             </div>
         </div>
 
-        <!-- BANNER USER ID & EA TRADING TOGGLE -->
+        <!-- BANNER USER ID, LOGOUT, & EA TRADING TOGGLE -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div class="text-sm">
-                <span class="text-slate-400">Kode USER ID Anda (Pasang di EA MT5): </span>
-                <span id="displayUserId" class="font-mono text-blue-400 font-bold ml-1">Loading...</span>
+            <div class="flex items-center gap-3">
+                <div class="text-sm">
+                    <span class="text-slate-400">USER ID: </span>
+                    <span id="displayUserId" class="font-mono text-blue-400 font-bold ml-1">Loading...</span>
+                </div>
+                <button onclick="handleLogout()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded border border-slate-600 transition">Log Out</button>
             </div>
+            
             <div class="flex items-center gap-3">
                 <span class="text-xs font-semibold text-slate-300">Remote Trading EA:</span>
                 <button onclick="toggleEATrading(true)" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded font-bold">ON</button>
@@ -116,24 +134,60 @@
     <!-- LOGIKA JAVASCRIPT DASHBOARD -->
     <script>
         const urlParams = new URLSearchParams(window.location.search);
-        const CURRENT_USER_ID = urlParams.get('user_id') || '31bf67f5-4e7e-40c0-9f9e-ad29608d56a9';
+        let CURRENT_USER_ID = localStorage.getItem('mt5_user_id') || urlParams.get('user_id') || '31bf67f5-4e7e-40c0-9f9e-ad29608d56a9';
         
         let selectedAccount = 'ALL';
 
-        document.getElementById('displayUserId').textContent = CURRENT_USER_ID;
+        function checkUserAuth() {
+            if (!CURRENT_USER_ID) {
+                document.getElementById('loginModal').classList.remove('hidden');
+            } else {
+                document.getElementById('loginModal').classList.add('hidden');
+                document.getElementById('displayUserId').textContent = CURRENT_USER_ID;
+                refreshDashboard();
+            }
+        }
 
-        // 1. MEMUAT DAFTAR SELURUH AKUN TANPA LIMIT 1000 BARIS
+        function handleLogin() {
+            const inputId = document.getElementById('inputUserId').value.trim();
+            if (inputId) {
+                CURRENT_USER_ID = inputId;
+                localStorage.setItem('mt5_user_id', inputId);
+                checkUserAuth();
+            } else {
+                alert('Silakan masukkan USER ID yang valid.');
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('mt5_user_id');
+            CURRENT_USER_ID = null;
+            document.getElementById('inputUserId').value = '';
+            checkUserAuth();
+        }
+
+        // 1. MEMUAT DAFTAR AKUN TERHUBUNG
         async function fetchAccounts() {
-            const { data, error } = await _supabase
+            if (!CURRENT_USER_ID) return;
+
+            // Ambil dari snapshot
+            const { data: snapData } = await _supabase
                 .from('account_snapshots')
-                .select('account_number, updated_at')
+                .select('account_number')
                 .eq('user_id', CURRENT_USER_ID)
-                .order('updated_at', { ascending: false })
                 .range(0, 9999);
 
-            if (error || !data) return;
+            // Ambil dari open positions
+            const { data: posData } = await _supabase
+                .from('open_positions')
+                .select('account_number')
+                .eq('user_id', CURRENT_USER_ID)
+                .range(0, 9999);
 
-            const uniqueAccs = [...new Set(data.map(item => item.account_number))];
+            const snapAccs = snapData ? snapData.map(i => i.account_number) : [];
+            const posAccs = posData ? posData.map(i => i.account_number) : [];
+
+            const uniqueAccs = [...new Set([...snapAccs, ...posAccs])];
             updateAccountDropdown(uniqueAccs);
         }
 
@@ -154,6 +208,8 @@
 
         // 2. MEMUAT METRIK BALANS & EA TERPASANG
         async function fetchSnapshots() {
+            if (!CURRENT_USER_ID) return;
+
             let query = _supabase
                 .from('account_snapshots')
                 .select('*')
@@ -199,8 +255,10 @@
                 : 'Tidak ada data EA terdeteksi';
         }
 
-        // 3. MEMUAT POSISI TRADING AKTIF
+        // 3. MEMUAT POSISI TRADING AKTIF (PERBAIKAN KOLOM UNDEFINED)
         async function fetchOpenPositions() {
+            if (!CURRENT_USER_ID) return;
+
             let query = _supabase
                 .from('open_positions')
                 .select('*')
@@ -220,21 +278,31 @@
             }
 
             document.getElementById('positionCount').textContent = `${data.length} Posisi`;
-            tbody.innerHTML = data.map(pos => `
+            tbody.innerHTML = data.map(pos => {
+                // Deteksi tipe transaksi (BUY / SELL)
+                const rawType = pos.position_type !== undefined ? pos.position_type : pos.type;
+                const displayType = (rawType === 0 || rawType === '0' || rawType === 'BUY' || rawType === 'POSITION_TYPE_BUY') ? 'BUY' : 'SELL';
+                
+                // Deteksi volume / lot
+                const displayLot = pos.lots !== undefined ? pos.lots : (pos.volume !== undefined ? pos.volume : pos.lot);
+
+                return `
                 <tr class="hover:bg-slate-700/30">
                     <td class="p-3 font-mono text-slate-400">#${pos.account_number}</td>
                     <td class="p-3 font-mono">${pos.ticket}</td>
                     <td class="p-3 font-bold text-white">${pos.symbol}</td>
-                    <td class="p-3 font-bold ${pos.position_type === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${pos.position_type}</td>
-                    <td class="p-3">${pos.lots}</td>
+                    <td class="p-3 font-bold ${displayType === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${displayType}</td>
+                    <td class="p-3 font-mono">${displayLot}</td>
                     <td class="p-3 font-mono">${pos.open_price}</td>
                     <td class="p-3 font-bold font-mono ${Number(pos.profit) >= 0 ? 'text-emerald-400' : 'text-rose-400'}">$${Number(pos.profit).toFixed(2)}</td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
 
-        // 4. MENGIRIM PERINTAH REMOTE KE MT5
+        // 4. MENGIRIM PERINTAH REMOTE
         async function sendCommand(cmd) {
+            if (!CURRENT_USER_ID) return;
+
             const accTarget = selectedAccount === 'ALL' ? null : Number(selectedAccount);
             const { error } = await _supabase.from('remote_commands').insert([{
                 user_id: CURRENT_USER_ID,
@@ -266,7 +334,8 @@
             fetchOpenPositions();
         }
 
-        refreshDashboard();
+        // Inisialisasi
+        checkUserAuth();
         setInterval(refreshDashboard, 3000);
     </script>
 </body>
