@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MT5 Multi-User Enterprise Dashboard</title>
+    <title>MT5 Terminal Dashboard</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Supabase JS SDK -->
@@ -15,26 +15,13 @@
     <script>
         const SUPABASE_URL = "https://naadmqzcirevppkzydfz.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92";
+        const DEFAULT_USER_ID = "31bf67f5-4e7e-40c0-9f9e-ad29608d56a9";
         
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     </script>
 
-    <!-- MODAL LOGIN (TAMPIL JIKA BELUM LOG IN) -->
-    <div id="loginModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full space-y-4 shadow-2xl">
-            <h2 class="text-xl font-bold text-white text-center">Log In Dasbor MT5</h2>
-            <p class="text-xs text-slate-400 text-center">Masukkan Kode USER ID Anda yang terpasang pada EA MT5.</p>
-            <div>
-                <label class="block text-xs font-semibold text-slate-300 mb-1">USER ID</label>
-                <input type="text" id="inputUserId" placeholder="Contoh: 31bf67f5-4e7e-40c0-9f9e-ad29608d56a9" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 font-mono">
-            </div>
-            <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-lg text-sm transition">Masuk ke Dasbor</button>
-        </div>
-    </div>
-
-    <!-- MAIN DASHBOARD CONTENT -->
-    <div id="dashboardContent" class="max-w-7xl mx-auto space-y-6">
+    <div class="max-w-7xl mx-auto space-y-6">
 
         <!-- HEADER & CONTROL BAR -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-lg">
@@ -58,14 +45,11 @@
             </div>
         </div>
 
-        <!-- BANNER USER ID, LOGOUT, & EA TRADING TOGGLE -->
+        <!-- BANNER USER ID & EA TRADING TOGGLE -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div class="flex items-center gap-3">
-                <div class="text-sm">
-                    <span class="text-slate-400">USER ID: </span>
-                    <span id="displayUserId" class="font-mono text-blue-400 font-bold ml-1">Loading...</span>
-                </div>
-                <button onclick="handleLogout()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded border border-slate-600 transition">Log Out</button>
+            <div class="text-sm">
+                <span class="text-slate-400">USER ID Aktif: </span>
+                <span id="displayUserId" class="font-mono text-blue-400 font-bold ml-1">Loading...</span>
             </div>
             
             <div class="flex items-center gap-3">
@@ -101,7 +85,7 @@
             <p id="installedEAs" class="text-xs font-mono text-emerald-400">Mendeteksi EA...</p>
         </div>
 
-        <!-- TABEL POSISI AKTIF -->
+        <!-- TABEL POSISI AKTIF (OPEN POSITIONS) -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
             <div class="p-4 border-b border-slate-700 flex justify-between items-center">
                 <h3 class="font-bold text-white text-sm">Posisi Aktif (Open Positions)</h3>
@@ -129,55 +113,59 @@
             </div>
         </div>
 
+        <!-- TABEL RIWAYAT ORDER TUTUP (CLOSED ORDERS HISTORY) -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                <div>
+                    <h3 class="font-bold text-white text-sm">Riwayat Order Tutup Harian (History Closed Orders)</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Daftar transaksi yang telah selesai/ditutup</p>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs text-slate-400">Total Profit History: </span>
+                    <span id="todayProfitText" class="text-sm font-bold font-mono text-emerald-400 ml-1">$0.00</span>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-900/50 uppercase text-slate-400 font-semibold border-b border-slate-700">
+                        <tr>
+                            <th class="p-3">Akun</th>
+                            <th class="p-3">Ticket</th>
+                            <th class="p-3">Symbol</th>
+                            <th class="p-3">Tipe</th>
+                            <th class="p-3">Lot</th>
+                            <th class="p-3">Harga Open</th>
+                            <th class="p-3">Harga Close</th>
+                            <th class="p-3">Profit ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="closedPositionsBody" class="divide-y divide-slate-700/50">
+                        <tr>
+                            <td colspan="8" class="p-4 text-center text-slate-500">Belum ada riwayat order ditutup</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 
     <!-- LOGIKA JAVASCRIPT DASHBOARD -->
     <script>
         const urlParams = new URLSearchParams(window.location.search);
-        let CURRENT_USER_ID = localStorage.getItem('mt5_user_id') || urlParams.get('user_id') || '31bf67f5-4e7e-40c0-9f9e-ad29608d56a9';
-        
+        const CURRENT_USER_ID = urlParams.get('user_id') || DEFAULT_USER_ID;
         let selectedAccount = 'ALL';
 
-        function checkUserAuth() {
-            if (!CURRENT_USER_ID) {
-                document.getElementById('loginModal').classList.remove('hidden');
-            } else {
-                document.getElementById('loginModal').classList.add('hidden');
-                document.getElementById('displayUserId').textContent = CURRENT_USER_ID;
-                refreshDashboard();
-            }
-        }
+        document.getElementById('displayUserId').textContent = CURRENT_USER_ID;
 
-        function handleLogin() {
-            const inputId = document.getElementById('inputUserId').value.trim();
-            if (inputId) {
-                CURRENT_USER_ID = inputId;
-                localStorage.setItem('mt5_user_id', inputId);
-                checkUserAuth();
-            } else {
-                alert('Silakan masukkan USER ID yang valid.');
-            }
-        }
-
-        function handleLogout() {
-            localStorage.removeItem('mt5_user_id');
-            CURRENT_USER_ID = null;
-            document.getElementById('inputUserId').value = '';
-            checkUserAuth();
-        }
-
-        // 1. MEMUAT DAFTAR AKUN TERHUBUNG
+        // 1. MEMUAT DAFTAR AKUN
         async function fetchAccounts() {
-            if (!CURRENT_USER_ID) return;
-
-            // Ambil dari snapshot
             const { data: snapData } = await _supabase
                 .from('account_snapshots')
                 .select('account_number')
                 .eq('user_id', CURRENT_USER_ID)
                 .range(0, 9999);
 
-            // Ambil dari open positions
             const { data: posData } = await _supabase
                 .from('open_positions')
                 .select('account_number')
@@ -208,8 +196,6 @@
 
         // 2. MEMUAT METRIK BALANS & EA TERPASANG
         async function fetchSnapshots() {
-            if (!CURRENT_USER_ID) return;
-
             let query = _supabase
                 .from('account_snapshots')
                 .select('*')
@@ -255,10 +241,8 @@
                 : 'Tidak ada data EA terdeteksi';
         }
 
-        // 3. MEMUAT POSISI TRADING AKTIF (PERBAIKAN KOLOM UNDEFINED)
+        // 3. MEMUAT POSISI AKTIF (OPEN POSITIONS)
         async function fetchOpenPositions() {
-            if (!CURRENT_USER_ID) return;
-
             let query = _supabase
                 .from('open_positions')
                 .select('*')
@@ -279,11 +263,8 @@
 
             document.getElementById('positionCount').textContent = `${data.length} Posisi`;
             tbody.innerHTML = data.map(pos => {
-                // Deteksi tipe transaksi (BUY / SELL)
                 const rawType = pos.position_type !== undefined ? pos.position_type : pos.type;
                 const displayType = (rawType === 0 || rawType === '0' || rawType === 'BUY' || rawType === 'POSITION_TYPE_BUY') ? 'BUY' : 'SELL';
-                
-                // Deteksi volume / lot
                 const displayLot = pos.lots !== undefined ? pos.lots : (pos.volume !== undefined ? pos.volume : pos.lot);
 
                 return `
@@ -299,10 +280,56 @@
             `}).join('');
         }
 
-        // 4. MENGIRIM PERINTAH REMOTE
-        async function sendCommand(cmd) {
-            if (!CURRENT_USER_ID) return;
+        // 4. MEMUAT RIWAYAT POSISI DITUTUP (CLOSED POSITIONS HISTORY)
+        async function fetchClosedPositions() {
+            let query = _supabase
+                .from('closed_positions')
+                .select('*')
+                .eq('user_id', CURRENT_USER_ID)
+                .order('created_at', { ascending: false })
+                .range(0, 499);
 
+            if (selectedAccount !== 'ALL') {
+                query = query.eq('account_number', selectedAccount);
+            }
+
+            const { data, error } = await query;
+            const tbody = document.getElementById('closedPositionsBody');
+
+            if (error || !data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-slate-500">Belum ada riwayat order ditutup</td></tr>';
+                document.getElementById('todayProfitText').textContent = '$0.00';
+                return;
+            }
+
+            let sumProfit = 0;
+            tbody.innerHTML = data.map(pos => {
+                const rawType = pos.position_type !== undefined ? pos.position_type : pos.type;
+                const displayType = (rawType === 0 || rawType === '0' || rawType === 'BUY' || rawType === 'POSITION_TYPE_BUY') ? 'BUY' : 'SELL';
+                const displayLot = pos.lots !== undefined ? pos.lots : (pos.volume !== undefined ? pos.volume : pos.lot);
+                const prof = Number(pos.profit || 0);
+                sumProfit += prof;
+
+                return `
+                <tr class="hover:bg-slate-700/30">
+                    <td class="p-3 font-mono text-slate-400">#${pos.account_number}</td>
+                    <td class="p-3 font-mono">${pos.ticket}</td>
+                    <td class="p-3 font-bold text-white">${pos.symbol}</td>
+                    <td class="p-3 font-bold ${displayType === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${displayType}</td>
+                    <td class="p-3 font-mono">${displayLot}</td>
+                    <td class="p-3 font-mono">${pos.open_price || '-'}</td>
+                    <td class="p-3 font-mono">${pos.close_price || '-'}</td>
+                    <td class="p-3 font-bold font-mono ${prof >= 0 ? 'text-emerald-400' : 'text-rose-400'}">$${prof.toFixed(2)}</td>
+                </tr>
+            `}).join('');
+
+            const profElem = document.getElementById('todayProfitText');
+            profElem.textContent = `$${sumProfit.toFixed(2)}`;
+            profElem.className = `text-sm font-bold font-mono ml-1 ${sumProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+        }
+
+        // 5. MENGIRIM PERINTAH REMOTE
+        async function sendCommand(cmd) {
             const accTarget = selectedAccount === 'ALL' ? null : Number(selectedAccount);
             const { error } = await _supabase.from('remote_commands').insert([{
                 user_id: CURRENT_USER_ID,
@@ -332,10 +359,11 @@
             fetchAccounts();
             fetchSnapshots();
             fetchOpenPositions();
+            fetchClosedPositions();
         }
 
-        // Inisialisasi
-        checkUserAuth();
+        // Inisialisasi dan Auto-Refresh setiap 3 Detik
+        refreshDashboard();
         setInterval(refreshDashboard, 3000);
     </script>
 </body>
