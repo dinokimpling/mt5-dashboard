@@ -47,14 +47,19 @@
 
         <!-- BANNER USER ID, TOMBOL LOG IN / OUT, & REMOTE TOGGLE -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div class="flex items-center gap-3 text-sm">
+            <div class="flex flex-wrap items-center gap-3 text-sm">
                 <div>
                     <span class="text-slate-400">USER ID: </span>
                     <span id="displayUserId" class="font-mono text-blue-400 font-bold ml-1">Loading...</span>
                 </div>
-                <button onclick="loginLogout()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1 rounded border border-slate-600 font-semibold transition">
-                    Log In / Out
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="handleLogin()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded font-semibold transition">
+                        Log In / Ganti ID
+                    </button>
+                    <button onclick="handleLogout()" class="bg-rose-700 hover:bg-rose-600 text-white text-xs px-3 py-1.5 rounded font-semibold transition">
+                        Log Out
+                    </button>
+                </div>
             </div>
             
             <div class="flex items-center gap-3">
@@ -161,16 +166,27 @@
         let CURRENT_USER_ID = urlParams.get('user_id') || localStorage.getItem('user_id') || DEFAULT_USER_ID;
         let selectedAccount = 'ALL';
 
+        // Simpan ke localStorage
+        localStorage.setItem('user_id', CURRENT_USER_ID);
         document.getElementById('displayUserId').textContent = CURRENT_USER_ID;
 
-        // FUNGSI LOG IN / LOG OUT USER ID
-        function loginLogout() {
-            const inputId = prompt('Masukkan USER ID akun kamu:', CURRENT_USER_ID);
-            if (inputId !== null && inputId.trim() !== '') {
-                const newId = inputId.trim();
-                localStorage.setItem('user_id', newId);
-                window.location.search = '?user_id=' + encodeURIComponent(newId);
+        // FUNGSI LOG IN / GANTI USER ID
+        function handleLogin() {
+            const inputId = prompt('Masukkan Kode USER ID Kamu:', CURRENT_USER_ID);
+            if (inputId && inputId.trim() !== '') {
+                const cleanId = inputId.trim();
+                localStorage.setItem('user_id', cleanId);
+                window.location.href = window.location.pathname + '?user_id=' + encodeURIComponent(cleanId);
             }
+        }
+
+        // FUNGSI LOG OUT
+        function handleLogout() {
+            localStorage.removeItem('user_id');
+            const inputId = prompt('Kamu telah Log Out. Masukkan USER ID baru (atau klik OK untuk default):', DEFAULT_USER_ID);
+            const nextId = (inputId && inputId.trim() !== '') ? inputId.trim() : DEFAULT_USER_ID;
+            localStorage.setItem('user_id', nextId);
+            window.location.href = window.location.pathname + '?user_id=' + encodeURIComponent(nextId);
         }
 
         // 1. MEMUAT DAFTAR AKUN
@@ -379,7 +395,7 @@
             fetchClosedPositions();
         }
 
-        // Inisialisasi dan Auto-Refresh setiap 3 Detik
+        // Inisialisasi awal & auto-refresh tiap 3 detik
         refreshDashboard();
         setInterval(refreshDashboard, 3000);
     </script>
