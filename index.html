@@ -45,11 +45,16 @@
             </div>
         </div>
 
-        <!-- BANNER USER ID & EA TRADING TOGGLE -->
+        <!-- BANNER USER ID, TOMBOL LOG IN / OUT, & REMOTE TOGGLE -->
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div class="text-sm">
-                <span class="text-slate-400">USER ID Aktif: </span>
-                <span id="displayUserId" class="font-mono text-blue-400 font-bold ml-1">Loading...</span>
+            <div class="flex items-center gap-3 text-sm">
+                <div>
+                    <span class="text-slate-400">USER ID: </span>
+                    <span id="displayUserId" class="font-mono text-blue-400 font-bold ml-1">Loading...</span>
+                </div>
+                <button onclick="loginLogout()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1 rounded border border-slate-600 font-semibold transition">
+                    Log In / Out
+                </button>
             </div>
             
             <div class="flex items-center gap-3">
@@ -153,10 +158,20 @@
     <!-- LOGIKA JAVASCRIPT DASHBOARD -->
     <script>
         const urlParams = new URLSearchParams(window.location.search);
-        const CURRENT_USER_ID = urlParams.get('user_id') || DEFAULT_USER_ID;
+        let CURRENT_USER_ID = urlParams.get('user_id') || localStorage.getItem('user_id') || DEFAULT_USER_ID;
         let selectedAccount = 'ALL';
 
         document.getElementById('displayUserId').textContent = CURRENT_USER_ID;
+
+        // FUNGSI LOG IN / LOG OUT USER ID
+        function loginLogout() {
+            const inputId = prompt('Masukkan USER ID akun kamu:', CURRENT_USER_ID);
+            if (inputId !== null && inputId.trim() !== '') {
+                const newId = inputId.trim();
+                localStorage.setItem('user_id', newId);
+                window.location.search = '?user_id=' + encodeURIComponent(newId);
+            }
+        }
 
         // 1. MEMUAT DAFTAR AKUN
         async function fetchAccounts() {
@@ -224,7 +239,9 @@
                 eq += Number(acc.equity || 0);
                 float += Number(acc.floating_pl || 0);
                 freeM += Number(acc.free_margin || 0);
-                if (acc.installed_eas) easList.push(`#${acc.account_number}: ${acc.installed_eas}`);
+                if (acc.installed_eas && acc.installed_eas.trim() !== '') {
+                    easList.push(`#${acc.account_number}: ${acc.installed_eas}`);
+                }
             });
 
             document.getElementById('totalBalance').textContent = `$${bal.toFixed(2)}`;
