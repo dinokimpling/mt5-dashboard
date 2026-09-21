@@ -1,314 +1,413 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MT5 Multi-User Enterprise Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: #0f172a; color: #f8fafc; padding: 20px; min-height: 100vh; }
-    .container { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
-    
-    /* Login Screen */
-    .auth-card { max-width: 400px; margin: 80px auto; background-color: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; }
-    .auth-card h2 { margin-bottom: 20px; text-align: center; }
-    .input-group { margin-bottom: 15px; }
-    .input-group label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px; }
-    .input-group input { width: 100%; padding: 10px; background-color: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #fff; outline: none; }
-    .btn-primary { width: 100%; background-color: #38bdf8; color: #0f172a; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-    .btn-secondary { width: 100%; background-color: transparent; color: #94a3b8; border: 1px solid #334155; padding: 8px; border-radius: 6px; cursor: pointer; margin-top: 8px; font-size: 0.85rem; }
-
-    /* Dashboard Layout */
-    .header { background-color: #1e293b; padding: 16px 24px; border-radius: 12px; border: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-    .header-title { display: flex; align-items: center; gap: 10px; font-size: 1.25rem; font-weight: bold; }
-    .dot { width: 10px; height: 10px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
-    select { background-color: #0f172a; color: #fff; border: 1px solid #334155; padding: 8px 14px; border-radius: 8px; font-size: 0.9rem; outline: none; }
-    
-    .user-info-box { background-color: rgba(56, 189, 248, 0.1); border: 1px solid #38bdf8; padding: 12px; border-radius: 8px; font-size: 0.85rem; color: #38bdf8; display: flex; justify-content: space-between; align-items: center; }
-    .btn-danger { background-color: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
-    .card { background-color: #1e293b; padding: 18px; border-radius: 12px; border: 1px solid #334155; }
-    .card-label { font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; }
-    .stat-value { font-size: 1.5rem; font-weight: bold; margin-top: 6px; }
-    
-    .text-sky { color: #38bdf8; } .text-green { color: #10b981; } .text-red { color: #f43f5e; } .text-amber { color: #f59e0b; }
-    .chart-card, .table-card { background-color: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; margin-top: 10px; }
-    th { padding: 10px; color: #94a3b8; border-bottom: 1px solid #334155; }
-    td { padding: 10px; border-bottom: 1px solid rgba(51, 65, 85, 0.6); }
-    .badge-buy { background-color: rgba(16, 185, 129, 0.2); color: #10b981; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
-    .badge-sell { background-color: rgba(244, 63, 94, 0.2); color: #f43f5e; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MT5 Terminal Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-6 font-sans">
 
-  <!-- AUTH SECTION -->
-  <div id="authSection" class="auth-card">
-    <h2 id="authTitle">Login Dasbor MT5</h2>
-    <div class="input-group">
-      <label>Email</label>
-      <input type="email" id="email" placeholder="nama@email.com">
-    </div>
-    <div class="input-group">
-      <label>Password</label>
-      <input type="password" id="password" placeholder="••••••••">
-    </div>
-    <button class="btn-primary" onclick="handleAuth()">LOGIN</button>
-    <button class="btn-secondary" onclick="toggleAuthMode()" id="toggleBtn">Belum punya akun? Daftar</button>
-  </div>
-
-  <!-- DASHBOARD SECTION -->
-  <div id="dashboardSection" class="container" style="display: none;">
-    <div class="header">
-      <div class="header-title">
-        <div class="dot"></div>
-        <span>MT5 Terminal Center</span>
-      </div>
-      <div style="display: flex; gap: 12px; align-items: center;">
-        <select id="accountSelect" onchange="onAccountChange()">
-          <option value="">Memuat akun...</option>
-        </select>
-        <button class="btn-danger" onclick="triggerCloseAll()">CLOSE ALL POSITIONS</button>
-        <button class="btn-secondary" onclick="handleLogout()" style="width: auto;">Logout</button>
-      </div>
-    </div>
-
-    <!-- Banner User ID untuk EA -->
-    <div class="user-info-box">
-      <div><strong>Kode USER ID Anda (Pasang di EA MT5):</strong> <span id="displayUserId" style="font-family: monospace; font-size: 1rem;">-</span></div>
-      <button class="btn-secondary" style="width: auto; padding: 4px 10px;" onclick="copyUserId()">Salin ID</button>
-    </div>
-
-    <div class="grid">
-      <div class="card"><div class="card-label">TOTAL BALANCE</div><div id="val-balance" class="stat-value">$0.00</div></div>
-      <div class="card"><div class="card-label">TOTAL EQUITY</div><div id="val-equity" class="stat-value text-sky">$0.00</div></div>
-      <div class="card"><div class="card-label">FLOATING P/L</div><div id="val-floating" class="stat-value text-amber">$0.00</div></div>
-      <div class="card"><div class="card-label">FREE MARGIN</div><div id="val-margin" class="stat-value">$0.00</div></div>
-      <div class="card"><div class="card-label">WIN RATE (HARIAN)</div><div id="val-winrate" class="stat-value text-green">0%</div></div>
-    </div>
-
-    <div class="chart-card">
-      <h3 style="font-size: 1rem; color: #e2e8f0; margin-bottom: 12px;">Grafik Pergerakan Equity</h3>
-      <div style="height: 280px; position: relative;"><canvas id="equityChart"></canvas></div>
-    </div>
-
-    <div class="table-card">
-      <h3 style="font-size: 1rem; color: #e2e8f0;">Posisi Aktif (Open Positions)</h3>
-      <table>
-        <thead><tr><th>Akun</th><th>Ticket</th><th>Symbol</th><th>Tipe</th><th>Lot</th><th>Harga Open</th><th>Profit ($)</th></tr></thead>
-        <tbody id="openTable"><tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr></tbody>
-      </table>
-    </div>
-
-    <div class="table-card">
-      <h3 style="font-size: 1rem; color: #e2e8f0;">Riwayat Transaksi Ditutup (Closed Today)</h3>
-      <table>
-        <thead><tr><th>Akun</th><th>Ticket</th><th>Symbol</th><th>Tipe</th><th>Lot</th><th>Harga Close</th><th>Profit Realized ($)</th></tr></thead>
-        <tbody id="closedTable"><tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-
-  <script>
-    const SUPABASE_URL = "https://naadmqzcirevppkzydfz.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92";
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    let currentUser = null;
-    let selectedAccount = "ALL";
-    let isSignUp = false;
-
-    const ctx = document.getElementById('equityChart').getContext('2d');
-    const chart = new Chart(ctx, {
-      type: 'line',
-      data: { labels: [], datasets: [{ label: 'Equity ($)', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.2 }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-    });
-
-    // Check Session On Load
-    async function initAuth() {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session) {
-        currentUser = session.user;
-        showDashboard();
-      }
-    }
-
-    function toggleAuthMode() {
-      isSignUp = !isSignUp;
-      document.getElementById('authTitle').textContent = isSignUp ? "Daftar Akun Baru" : "Login Dasbor MT5";
-      document.getElementById('toggleBtn').textContent = isSignUp ? "Sudah punya akun? Login" : "Belum punya akun? Daftar";
-    }
-
-    async function handleAuth() {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-
-      if (!email || !password) return alert("Email dan password wajib diisi!");
-
-      if (isSignUp) {
-        const { data, error } = await supabaseClient.auth.signUp({ email, password });
-        if (error) alert(error.message);
-        else alert("Pendaftaran berhasil! Silakan login.");
-      } else {
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) alert(error.message);
-        else {
-          currentUser = data.user;
-          showDashboard();
-        }
-      }
-    }
-
-    async function handleLogout() {
-      await supabaseClient.auth.signOut();
-      window.location.reload();
-    }
-
-    function showDashboard() {
-      document.getElementById('authSection').style.display = 'none';
-      document.getElementById('dashboardSection').style.display = 'flex';
-      document.getElementById('displayUserId').textContent = currentUser.id;
-      loadAccounts();
-      setInterval(refreshDashboard, 3000);
-    }
-
-    function copyUserId() {
-      navigator.clipboard.writeText(currentUser.id);
-      alert("USER ID berhasil disalin! Tempelkan ID ini ke input USER_ID pada EA MT5 Anda.");
-    }
-
-    async function loadAccounts() {
-      const { data } = await supabaseClient.from('account_snapshots')
-        .select('account_number').eq('user_id', currentUser.id);
-
-      if (data) {
-        const uniqueAccounts = [...new Set(data.map(item => item.account_number))];
-        let html = '<option value="ALL">-- SEMUA AKUN (GABUNGAN) --</option>';
-        uniqueAccounts.forEach(acc => {
-          html += `<option value="${acc}">Akun #${acc}</option>`;
-        });
-        document.getElementById('accountSelect').innerHTML = html;
-      }
-      refreshDashboard();
-    }
-
-    function onAccountChange() {
-      selectedAccount = document.getElementById('accountSelect').value;
-      refreshDashboard();
-    }
-
-    async function refreshDashboard() {
-      if (!currentUser) return;
-      fetchSnapshots();
-      fetchOpenPositions();
-      fetchClosedPositions();
-    }
-
-    async function fetchSnapshots() {
-      let query = supabaseClient.from('account_snapshots').select('*').eq('user_id', currentUser.id).order('updated_at', { ascending: false }).limit(50);
-      if (selectedAccount !== "ALL") query = query.eq('account_number', selectedAccount);
-
-      const { data } = await query;
-      if (!data || data.length === 0) return;
-
-      if (selectedAccount === "ALL") {
-        const latestPerAcc = {};
-        data.forEach(row => { if(!latestPerAcc[row.account_number]) latestPerAcc[row.account_number] = row; });
+    <!-- KONFIGURASI SUPABASE -->
+    <script>
+        const SUPABASE_URL = "https://naadmqzcirevppkzydfz.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92";
+        const DEFAULT_USER_ID = "31bf67f5-4e7e-40c0-9f9e-ad29608d56a9";
         
-        let sumBal = 0, sumEq = 0, sumFloat = 0, sumFreeM = 0;
-        Object.values(latestPerAcc).forEach(acc => {
-          sumBal += Number(acc.balance || 0); sumEq += Number(acc.equity || 0);
-          sumFloat += Number(acc.floating_pl || 0); sumFreeM += Number(acc.free_margin || 0);
-        });
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    </script>
 
-        document.getElementById('val-balance').textContent = `$${sumBal.toFixed(2)}`;
-        document.getElementById('val-equity').textContent = `$${sumEq.toFixed(2)}`;
-        document.getElementById('val-floating').textContent = `$${sumFloat.toFixed(2)}`;
-        document.getElementById('val-margin').textContent = `$${sumFreeM.toFixed(2)}`;
-      } else {
-        const latest = data[0];
-        document.getElementById('val-balance').textContent = `$${Number(latest.balance).toFixed(2)}`;
-        document.getElementById('val-equity').textContent = `$${Number(latest.equity).toFixed(2)}`;
-        document.getElementById('val-floating').textContent = `$${Number(latest.floating_pl || 0).toFixed(2)}`;
-        document.getElementById('val-margin').textContent = `$${Number(latest.free_margin || 0).toFixed(2)}`;
+    <div class="max-w-7xl mx-auto space-y-6">
 
-        const historyData = [...data].reverse();
-        chart.data.labels = historyData.map(r => new Date(r.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-        chart.data.datasets[0].data = historyData.map(r => r.equity);
-        chart.update();
-      }
-    }
+        <!-- HEADER & CONTROL BAR -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-lg">
+            <div class="flex items-center gap-3">
+                <span class="relative flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <h1 class="text-xl font-bold text-white tracking-wide">MT5 Terminal Center</h1>
+            </div>
 
-    async function fetchOpenPositions() {
-      let query = supabaseClient.from('open_positions').select('*').eq('user_id', currentUser.id).order('ticket', { ascending: false });
-      if (selectedAccount !== "ALL") query = query.eq('account_number', selectedAccount);
+            <!-- DROPDOWN AKUN & TOMBOL DARURAT -->
+            <div class="flex flex-wrap items-center gap-3">
+                <select id="accountSelect" onchange="onAccountChange()" class="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2.5 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="ALL">Semua Akun (Total Gabungan)</option>
+                </select>
 
-      const { data: positions } = await query;
-      const body = document.getElementById('openTable');
+                <button onclick="sendCommand('CLOSE_BUY')" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs px-4 py-2.5 rounded-lg transition">CLOSE BUY</button>
+                <button onclick="sendCommand('CLOSE_SELL')" class="bg-orange-600 hover:bg-orange-500 text-white font-semibold text-xs px-4 py-2.5 rounded-lg transition">CLOSE SELL</button>
+                <button onclick="sendCommand('CLOSE_ALL')" class="bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs px-4 py-2.5 rounded-lg transition">CLOSE ALL</button>
+            </div>
+        </div>
 
-      if (!positions || positions.length === 0) {
-        body.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada posisi terbuka</td></tr>';
-        return;
-      }
+        <!-- BANNER USER ID, TOMBOL LOG IN / OUT, & REMOTE TOGGLE -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex flex-wrap items-center gap-3 text-sm">
+                <div>
+                    <span class="text-slate-400">USER ID: </span>
+                    <span id="displayUserId" class="font-mono text-blue-400 font-bold ml-1">Loading...</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="handleLogin()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded font-semibold transition">
+                        Log In / Ganti ID
+                    </button>
+                    <button onclick="handleLogout()" class="bg-rose-700 hover:bg-rose-600 text-white text-xs px-3 py-1.5 rounded font-semibold transition">
+                        Log Out
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <span class="text-xs font-semibold text-slate-300">Remote Trading EA:</span>
+                <button onclick="toggleEATrading(true)" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded font-bold">ON</button>
+                <button onclick="toggleEATrading(false)" class="bg-slate-700 hover:bg-rose-600 text-white text-xs px-3 py-1.5 rounded font-bold">OFF</button>
+            </div>
+        </div>
 
-      body.innerHTML = positions.map(p => `
-        <tr>
-          <td>#${p.account_number}</td><td>#${p.ticket}</td><td><strong>${p.symbol}</strong></td>
-          <td><span class="${p.type === 'BUY' ? 'badge-buy' : 'badge-sell'}">${p.type}</span></td>
-          <td>${Number(p.volume).toFixed(2)}</td><td>${Number(p.open_price).toFixed(5)}</td>
-          <td class="${Number(p.profit) >= 0 ? 'text-green' : 'text-red'}"><strong>$${Number(p.profit).toFixed(2)}</strong></td>
-        </tr>
-      `).join('');
-    }
+        <!-- STATS CARDS -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                <p class="text-xs text-slate-400 uppercase font-semibold">Total Balance</p>
+                <p id="totalBalance" class="text-2xl font-bold text-white mt-1">$0.00</p>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                <p class="text-xs text-slate-400 uppercase font-semibold">Total Equity</p>
+                <p id="totalEquity" class="text-2xl font-bold text-blue-400 mt-1">$0.00</p>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                <p class="text-xs text-slate-400 uppercase font-semibold">Floating P/L</p>
+                <p id="totalFloating" class="text-2xl font-bold text-emerald-400 mt-1">$0.00</p>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                <p class="text-xs text-slate-400 uppercase font-semibold">Free Margin</p>
+                <p id="totalFreeMargin" class="text-2xl font-bold text-slate-200 mt-1">$0.00</p>
+            </div>
+        </div>
 
-    async function fetchClosedPositions() {
-      let query = supabaseClient.from('closed_positions').select('*').eq('user_id', currentUser.id).order('ticket', { ascending: false });
-      if (selectedAccount !== "ALL") query = query.eq('account_number', selectedAccount);
+        <!-- INFO EA TERPASANG -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+            <h3 class="text-sm font-semibold text-slate-300 mb-1">EA Terpasang di MT5:</h3>
+            <p id="installedEAs" class="text-xs font-mono text-emerald-400">Mendeteksi EA...</p>
+        </div>
 
-      const { data: closed } = await query;
-      const body = document.getElementById('closedTable');
+        <!-- TABEL POSISI AKTIF (OPEN POSITIONS) -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="font-bold text-white text-sm">Posisi Aktif (Open Positions)</h3>
+                <span id="positionCount" class="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded">0 Posisi</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-900/50 uppercase text-slate-400 font-semibold border-b border-slate-700">
+                        <tr>
+                            <th class="p-3">Akun</th>
+                            <th class="p-3">Ticket</th>
+                            <th class="p-3">Symbol</th>
+                            <th class="p-3">Tipe</th>
+                            <th class="p-3">Lot</th>
+                            <th class="p-3">Harga Open</th>
+                            <th class="p-3">Profit ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="openPositionsBody" class="divide-y divide-slate-700/50">
+                        <tr>
+                            <td colspan="7" class="p-4 text-center text-slate-500">Belum ada posisi terbuka</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-      if (!closed || closed.length === 0) {
-        body.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada posisi ditutup hari ini</td></tr>';
-        document.getElementById('val-winrate').textContent = "0%";
-        return;
-      }
+        <!-- TABEL RIWAYAT ORDER TUTUP (CLOSED ORDERS HISTORY) -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                <div>
+                    <h3 class="font-bold text-white text-sm">Riwayat Order Tutup Harian (History Closed Orders)</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Daftar transaksi yang telah selesai/ditutup</p>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs text-slate-400">Total Profit History: </span>
+                    <span id="todayProfitText" class="text-sm font-bold font-mono text-emerald-400 ml-1">$0.00</span>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-900/50 uppercase text-slate-400 font-semibold border-b border-slate-700">
+                        <tr>
+                            <th class="p-3">Akun</th>
+                            <th class="p-3">Ticket</th>
+                            <th class="p-3">Symbol</th>
+                            <th class="p-3">Tipe</th>
+                            <th class="p-3">Lot</th>
+                            <th class="p-3">Harga Open</th>
+                            <th class="p-3">Harga Close</th>
+                            <th class="p-3">Profit ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="closedPositionsBody" class="divide-y divide-slate-700/50">
+                        <tr>
+                            <td colspan="8" class="p-4 text-center text-slate-500">Belum ada riwayat order ditutup</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-      let winCount = 0;
-      closed.forEach(c => { if(Number(c.profit) > 0) winCount++; });
-      document.getElementById('val-winrate').textContent = `${((winCount / closed.length) * 100).toFixed(1)}%`;
+    </div>
 
-      body.innerHTML = closed.map(c => `
-        <tr>
-          <td>#${c.account_number}</td><td>#${c.ticket}</td><td><strong>${c.symbol}</strong></td>
-          <td><span class="${c.type === 'BUY' ? 'badge-buy' : 'badge-sell'}">${c.type}</span></td>
-          <td>${Number(c.volume).toFixed(2)}</td><td>${Number(c.close_price).toFixed(5)}</td>
-          <td class="${Number(c.profit) >= 0 ? 'text-green' : 'text-red'}"><strong>$${Number(c.profit).toFixed(2)}</strong></td>
-        </tr>
-      `).join('');
-    }
+    <!-- LOGIKA JAVASCRIPT DASHBOARD -->
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        let CURRENT_USER_ID = urlParams.get('user_id') || localStorage.getItem('user_id') || DEFAULT_USER_ID;
+        let selectedAccount = 'ALL';
 
-    async function triggerCloseAll() {
-      const targetAcc = selectedAccount === "ALL" ? prompt("Masukkan nomor akun khusus untuk Close All:") : selectedAccount;
-      if (!targetAcc) return;
+        // Simpan ke localStorage
+        localStorage.setItem('user_id', CURRENT_USER_ID);
+        document.getElementById('displayUserId').textContent = CURRENT_USER_ID;
 
-      if (!confirm(`Tutup paksa posisi di akun #${targetAcc}?`)) return;
+        // FUNGSI LOG IN / GANTI USER ID
+        function handleLogin() {
+            const inputId = prompt('Masukkan Kode USER ID Kamu:', CURRENT_USER_ID);
+            if (inputId && inputId.trim() !== '') {
+                const cleanId = inputId.trim();
+                localStorage.setItem('user_id', cleanId);
+                window.location.href = window.location.pathname + '?user_id=' + encodeURIComponent(cleanId);
+            }
+        }
 
-      await supabaseClient.from('remote_commands').insert({
-        user_id: currentUser.id,
-        account_number: targetAcc,
-        command: 'CLOSE_ALL',
-        status: 'PENDING'
-      });
+        // FUNGSI LOG OUT
+        function handleLogout() {
+            localStorage.removeItem('user_id');
+            const inputId = prompt('Kamu telah Log Out. Masukkan USER ID baru (atau klik OK untuk default):', DEFAULT_USER_ID);
+            const nextId = (inputId && inputId.trim() !== '') ? inputId.trim() : DEFAULT_USER_ID;
+            localStorage.setItem('user_id', nextId);
+            window.location.href = window.location.pathname + '?user_id=' + encodeURIComponent(nextId);
+        }
 
-      alert("Perintah DARURAT CLOSE ALL telah dikirim ke MT5!");
-    }
+        // 1. MEMUAT DAFTAR AKUN (MENGAMBIL DARI TABEL ACCOUNTS, SNAPSHOTS, & POSITIONS)
+        async function fetchAccounts() {
+            // Ambil akun terdaftar dari tabel accounts
+            const { data: accData } = await _supabase
+                .from('accounts')
+                .select('account_number')
+                .eq('user_id', CURRENT_USER_ID);
 
-    initAuth();
-  </script>
+            // Ambil akun dari account_snapshots
+            const { data: snapData } = await _supabase
+                .from('account_snapshots')
+                .select('account_number')
+                .eq('user_id', CURRENT_USER_ID)
+                .range(0, 9999);
+
+            // Ambil akun dari open_positions
+            const { data: posData } = await _supabase
+                .from('open_positions')
+                .select('account_number')
+                .eq('user_id', CURRENT_USER_ID)
+                .range(0, 9999);
+
+            const list1 = accData ? accData.map(i => String(i.account_number)) : [];
+            const list2 = snapData ? snapData.map(i => String(i.account_number)) : [];
+            const list3 = posData ? posData.map(i => String(i.account_number)) : [];
+
+            // Gabungkan semua nomor akun tanpa duplikasi
+            const uniqueAccs = [...new Set([...list1, ...list2, ...list3])].filter(Boolean);
+            updateAccountDropdown(uniqueAccs);
+        }
+
+        function updateAccountDropdown(accounts) {
+            const dropdown = document.getElementById('accountSelect');
+            const currentSelection = dropdown.value || 'ALL';
+
+            dropdown.innerHTML = '<option value="ALL">Semua Akun (Total Gabungan)</option>';
+            accounts.forEach(acc => {
+                const opt = document.createElement('option');
+                opt.value = acc;
+                opt.textContent = `Akun #${acc}`;
+                dropdown.appendChild(opt);
+            });
+
+            dropdown.value = currentSelection;
+        }
+
+        // 2. MEMUAT METRIK BALANS & EA TERPASANG
+        async function fetchSnapshots() {
+            let query = _supabase
+                .from('account_snapshots')
+                .select('*')
+                .eq('user_id', CURRENT_USER_ID)
+                .range(0, 9999);
+
+            if (selectedAccount !== 'ALL') {
+                query = query.eq('account_number', selectedAccount);
+            }
+
+            const { data, error } = await query;
+            if (error || !data) return;
+
+            const latestMap = {};
+            data.forEach(item => {
+                if (!latestMap[item.account_number] || new Date(item.updated_at) > new Date(latestMap[item.account_number].updated_at)) {
+                    latestMap[item.account_number] = item;
+                }
+            });
+
+            let bal = 0, eq = 0, float = 0, freeM = 0;
+            let easList = [];
+
+            Object.values(latestMap).forEach(acc => {
+                bal += Number(acc.balance || 0);
+                eq += Number(acc.equity || 0);
+                float += Number(acc.floating_pl || 0);
+                freeM += Number(acc.free_margin || 0);
+                if (acc.installed_eas && acc.installed_eas.trim() !== '') {
+                    easList.push(`#${acc.account_number}: ${acc.installed_eas}`);
+                }
+            });
+
+            document.getElementById('totalBalance').textContent = `$${bal.toFixed(2)}`;
+            document.getElementById('totalEquity').textContent = `$${eq.toFixed(2)}`;
+            
+            const floatElem = document.getElementById('totalFloating');
+            floatElem.textContent = `$${float.toFixed(2)}`;
+            floatElem.className = `text-2xl font-bold mt-1 ${float >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+            
+            document.getElementById('totalFreeMargin').textContent = `$${freeM.toFixed(2)}`;
+            
+            document.getElementById('installedEAs').textContent = easList.length > 0 
+                ? easList.join(' | ') 
+                : 'Tidak ada data EA terdeteksi';
+        }
+
+        // 3. MEMUAT POSISI AKTIF (OPEN POSITIONS)
+        async function fetchOpenPositions() {
+            let query = _supabase
+                .from('open_positions')
+                .select('*')
+                .eq('user_id', CURRENT_USER_ID);
+
+            if (selectedAccount !== 'ALL') {
+                query = query.eq('account_number', selectedAccount);
+            }
+
+            const { data, error } = await query;
+            const tbody = document.getElementById('openPositionsBody');
+
+            if (error || !data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-slate-500">Belum ada posisi terbuka</td></tr>';
+                document.getElementById('positionCount').textContent = '0 Posisi';
+                return;
+            }
+
+            document.getElementById('positionCount').textContent = `${data.length} Posisi`;
+            tbody.innerHTML = data.map(pos => {
+                const rawType = pos.position_type !== undefined ? pos.position_type : pos.type;
+                const displayType = (rawType === 0 || rawType === '0' || rawType === 'BUY' || rawType === 'POSITION_TYPE_BUY') ? 'BUY' : 'SELL';
+                const displayLot = pos.lots !== undefined ? pos.lots : (pos.volume !== undefined ? pos.volume : pos.lot);
+
+                return `
+                <tr class="hover:bg-slate-700/30">
+                    <td class="p-3 font-mono text-slate-400">#${pos.account_number}</td>
+                    <td class="p-3 font-mono">${pos.ticket}</td>
+                    <td class="p-3 font-bold text-white">${pos.symbol}</td>
+                    <td class="p-3 font-bold ${displayType === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${displayType}</td>
+                    <td class="p-3 font-mono">${displayLot}</td>
+                    <td class="p-3 font-mono">${pos.open_price}</td>
+                    <td class="p-3 font-bold font-mono ${Number(pos.profit) >= 0 ? 'text-emerald-400' : 'text-rose-400'}">$${Number(pos.profit).toFixed(2)}</td>
+                </tr>
+            `}).join('');
+        }
+
+        // 4. MEMUAT RIWAYAT POSISI DITUTUP (CLOSED POSITIONS HISTORY)
+        async function fetchClosedPositions() {
+            let query = _supabase
+                .from('closed_positions')
+                .select('*')
+                .eq('user_id', CURRENT_USER_ID)
+                .order('created_at', { ascending: false })
+                .range(0, 499);
+
+            if (selectedAccount !== 'ALL') {
+                query = query.eq('account_number', selectedAccount);
+            }
+
+            const { data, error } = await query;
+            const tbody = document.getElementById('closedPositionsBody');
+
+            if (error || !data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-slate-500">Belum ada riwayat order ditutup</td></tr>';
+                document.getElementById('todayProfitText').textContent = '$0.00';
+                return;
+            }
+
+            let sumProfit = 0;
+            tbody.innerHTML = data.map(pos => {
+                const rawType = pos.position_type !== undefined ? pos.position_type : pos.type;
+                const displayType = (rawType === 0 || rawType === '0' || rawType === 'BUY' || rawType === 'POSITION_TYPE_BUY') ? 'BUY' : 'SELL';
+                const displayLot = pos.lots !== undefined ? pos.lots : (pos.volume !== undefined ? pos.volume : pos.lot);
+                const prof = Number(pos.profit || 0);
+                sumProfit += prof;
+
+                return `
+                <tr class="hover:bg-slate-700/30">
+                    <td class="p-3 font-mono text-slate-400">#${pos.account_number}</td>
+                    <td class="p-3 font-mono">${pos.ticket}</td>
+                    <td class="p-3 font-bold text-white">${pos.symbol}</td>
+                    <td class="p-3 font-bold ${displayType === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${displayType}</td>
+                    <td class="p-3 font-mono">${displayLot}</td>
+                    <td class="p-3 font-mono">${pos.open_price || '-'}</td>
+                    <td class="p-3 font-mono">${pos.close_price || '-'}</td>
+                    <td class="p-3 font-bold font-mono ${prof >= 0 ? 'text-emerald-400' : 'text-rose-400'}">$${prof.toFixed(2)}</td>
+                </tr>
+            `}).join('');
+
+            const profElem = document.getElementById('todayProfitText');
+            profElem.textContent = `$${sumProfit.toFixed(2)}`;
+            profElem.className = `text-sm font-bold font-mono ml-1 ${sumProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+        }
+
+        // 5. MENGIRIM PERINTAH REMOTE
+        async function sendCommand(cmd) {
+            const accTarget = selectedAccount === 'ALL' ? null : Number(selectedAccount);
+            const { error } = await _supabase.from('remote_commands').insert([{
+                user_id: CURRENT_USER_ID,
+                account_number: accTarget,
+                command: cmd,
+                status: 'PENDING'
+            }]);
+
+            if (error) {
+                alert('Gagal mengirim perintah: ' + error.message);
+            } else {
+                alert(`Perintah ${cmd} berhasil dikirim ke MT5!`);
+            }
+        }
+
+        function toggleEATrading(enable) {
+            const cmd = enable ? 'ENABLE_TRADING' : 'DISABLE_TRADING';
+            sendCommand(cmd);
+        }
+
+        function onAccountChange() {
+            selectedAccount = document.getElementById('accountSelect').value;
+            refreshDashboard();
+        }
+
+        function refreshDashboard() {
+            fetchAccounts();
+            fetchSnapshots();
+            fetchOpenPositions();
+            fetchClosedPositions();
+        }
+
+        // Inisialisasi awal & auto-refresh tiap 3 detik
+        refreshDashboard();
+        setInterval(refreshDashboard, 3000);
+    </script>
 </body>
 </html>
