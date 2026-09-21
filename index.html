@@ -3,209 +3,394 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MT5 Realtime Monitor</title>
+  <title>MT5 Multi-User Enterprise Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: #0f172a; color: #f8fafc; padding: 20px; min-height: 100vh; }
-    .container { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
     
-    /* Header */
+    /* Login Screen */
+    .auth-card { max-width: 400px; margin: 80px auto; background-color: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; }
+    .auth-card h2 { margin-bottom: 20px; text-align: center; }
+    .input-group { margin-bottom: 15px; }
+    .input-group label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px; }
+    .input-group input[type="email"], .input-group input[type="password"], .input-group input[type="text"] { width: 100%; padding: 10px; background-color: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #fff; outline: none; }
+    
+    /* Wrapper untuk Input Password & Ikon Mata */
+    .password-wrapper { position: relative; width: 100%; }
+    .password-wrapper input { padding-right: 40px; }
+    .toggle-password { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; user-select: none; font-size: 1.1rem; opacity: 0.7; transition: opacity 0.2s; }
+    .toggle-password:hover { opacity: 1; }
+
+    .checkbox-group { display: flex; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; }
+    .checkbox-group input { width: 16px; height: 16px; cursor: pointer; accent-color: #38bdf8; }
+    .checkbox-group label { margin-bottom: 0; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; }
+
+    .btn-primary { width: 100%; background-color: #38bdf8; color: #0f172a; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+    .btn-secondary { width: 100%; background-color: transparent; color: #94a3b8; border: 1px solid #334155; padding: 8px; border-radius: 6px; cursor: pointer; margin-top: 8px; font-size: 0.85rem; }
+
+    /* Dashboard Layout */
     .header { background-color: #1e293b; padding: 16px 24px; border-radius: 12px; border: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
     .header-title { display: flex; align-items: center; gap: 10px; font-size: 1.25rem; font-weight: bold; }
     .dot { width: 10px; height: 10px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
-    .select-box { display: flex; align-items: center; gap: 10px; }
-    select { background-color: #0f172a; color: #fff; border: 1px solid #334155; padding: 8px 14px; border-radius: 8px; font-size: 0.9rem; cursor: pointer; outline: none; }
+    select { background-color: #0f172a; color: #fff; border: 1px solid #334155; padding: 8px 14px; border-radius: 8px; font-size: 0.9rem; outline: none; }
     
-    /* Grid Stats */
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-    .card { background-color: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; }
-    .card-label { font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-    .stat-value { font-size: 1.75rem; font-weight: bold; margin-top: 8px; }
+    .user-info-box { background-color: rgba(56, 189, 248, 0.1); border: 1px solid #38bdf8; padding: 12px; border-radius: 8px; font-size: 0.85rem; color: #38bdf8; display: flex; justify-content: space-between; align-items: center; }
+    .btn-danger { background-color: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .card { background-color: #1e293b; padding: 18px; border-radius: 12px; border: 1px solid #334155; }
+    .card-label { font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; }
+    .stat-value { font-size: 1.5rem; font-weight: bold; margin-top: 6px; }
     
-    .text-sky { color: #38bdf8; }
-    .text-green { color: #10b981; }
-    .text-red { color: #f43f5e; }
-    
-    /* Chart Container */
-    .chart-card { background-color: #1e293b; padding: 24px; border-radius: 12px; border: 1px solid #334155; display: flex; flex-direction: column; gap: 16px; }
-    .chart-header { display: flex; justify-content: space-between; align-items: center; }
-    .chart-container { position: relative; height: 320px; width: 100%; }
+    .text-sky { color: #38bdf8; } .text-green { color: #10b981; } .text-red { color: #f43f5e; } .text-amber { color: #f59e0b; }
+    .chart-card, .table-card { background-color: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; margin-top: 10px; }
+    th { padding: 10px; color: #94a3b8; border-bottom: 1px solid #334155; }
+    td { padding: 10px; border-bottom: 1px solid rgba(51, 65, 85, 0.6); }
+    .badge-buy { background-color: rgba(16, 185, 129, 0.2); color: #10b981; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
+    .badge-sell { background-color: rgba(244, 63, 94, 0.2); color: #f43f5e; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <!-- Header & Dropdown Akun -->
+  <!-- AUTH SECTION -->
+  <div id="authSection" class="auth-card">
+    <h2 id="authTitle">Login Dasbor MT5</h2>
+    <div class="input-group">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="nama@email.com">
+    </div>
+    <div class="input-group">
+      <label>Password</label>
+      <div class="password-wrapper">
+        <input type="password" id="password" placeholder="••••••••">
+        <span class="toggle-password" id="togglePasswordBtn" onclick="togglePasswordVisibility()">👁️</span>
+      </div>
+    </div>
+    
+    <!-- Opsi Remember Me / Ingat Saya -->
+    <div class="checkbox-group">
+      <input type="checkbox" id="rememberMe" checked>
+      <label for="rememberMe">Ingat saya (Auto Login)</label>
+    </div>
+
+    <button class="btn-primary" onclick="handleAuth()">LOGIN</button>
+    <button class="btn-secondary" onclick="toggleAuthMode()" id="toggleBtn">Belum punya akun? Daftar</button>
+  </div>
+
+  <!-- DASHBOARD SECTION -->
+  <div id="dashboardSection" class="container" style="display: none;">
     <div class="header">
       <div class="header-title">
         <div class="dot"></div>
-        <span>MT5 Monitor</span>
+        <span>MT5 Terminal Center</span>
       </div>
-      <div class="select-box">
-        <label for="accountSelect" style="font-size: 0.85rem; color: #94a3b8;">Pilih Akun:</label>
+      <div style="display: flex; gap: 12px; align-items: center;">
         <select id="accountSelect" onchange="onAccountChange()">
-          <option value="">Memuat daftar akun...</option>
+          <option value="">Memuat akun...</option>
         </select>
+        <button class="btn-danger" onclick="triggerCloseAll()">CLOSE ALL POSITIONS</button>
+        <button class="btn-secondary" onclick="handleLogout()" style="width: auto;">Logout</button>
       </div>
     </div>
 
-    <!-- Cards Grid -->
+    <!-- Banner User ID untuk EA -->
+    <div class="user-info-box">
+      <div><strong>Kode USER ID Anda (Pasang di EA MT5):</strong> <span id="displayUserId" style="font-family: monospace; font-size: 1rem;">-</span></div>
+      <button class="btn-secondary" style="width: auto; padding: 4px 10px;" onclick="copyUserId()">Salin ID</button>
+    </div>
+
     <div class="grid">
-      <div class="card">
-        <div class="card-label">BALANCE</div>
-        <div id="val-balance" class="stat-value">$0.00</div>
-      </div>
-      <div class="card">
-        <div class="card-label">EQUITY</div>
-        <div id="val-equity" class="stat-value text-sky">$0.00</div>
-      </div>
-      <div class="card">
-        <div class="card-label">PROFIT HARI INI</div>
-        <div id="val-profit" class="stat-value text-green">+$0.00</div>
-      </div>
-      <div class="card">
-        <div class="card-label">PERSENTASE HARIAN</div>
-        <div id="val-percent" class="stat-value text-green">+0.00%</div>
-      </div>
+      <div class="card"><div class="card-label">TOTAL BALANCE</div><div id="val-balance" class="stat-value">$0.00</div></div>
+      <div class="card"><div class="card-label">TOTAL EQUITY</div><div id="val-equity" class="stat-value text-sky">$0.00</div></div>
+      <div class="card"><div class="card-label">FLOATING P/L</div><div id="val-floating" class="stat-value text-amber">$0.00</div></div>
+      <div class="card"><div class="card-label">FREE MARGIN</div><div id="val-margin" class="stat-value">$0.00</div></div>
+      <div class="card"><div class="card-label">WIN RATE (HARIAN)</div><div id="val-winrate" class="stat-value text-green">0%</div></div>
     </div>
 
-    <!-- Chart Section -->
     <div class="chart-card">
-      <div class="chart-header">
-        <h3 style="font-size: 1rem; color: #e2e8f0;">Grafik Pertumbuhan Equity Intraday</h3>
-        <span style="font-size: 0.75rem; color: #94a3b8;">Pembaruan Real-time</span>
-      </div>
-      <div class="chart-container">
-        <canvas id="equityChart"></canvas>
-      </div>
+      <h3 style="font-size: 1rem; color: #e2e8f0; margin-bottom: 12px;">Grafik Pergerakan Equity</h3>
+      <div style="height: 280px; position: relative;"><canvas id="equityChart"></canvas></div>
+    </div>
+
+    <div class="table-card">
+      <h3 style="font-size: 1rem; color: #e2e8f0;">Posisi Aktif (Open Positions)</h3>
+      <table>
+        <thead><tr><th>Akun</th><th>Ticket</th><th>Symbol</th><th>Tipe</th><th>Lot</th><th>Harga Open</th><th>Profit ($)</th></tr></thead>
+        <tbody id="openTable"><tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="table-card">
+      <h3 style="font-size: 1rem; color: #e2e8f0;">Riwayat Transaksi Ditutup (Closed Today)</h3>
+      <table>
+        <thead><tr><th>Akun</th><th>Ticket</th><th>Symbol</th><th>Tipe</th><th>Lot</th><th>Harga Close</th><th>Profit Realized ($)</th></tr></thead>
+        <tbody id="closedTable"><tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr></tbody>
+      </table>
     </div>
   </div>
 
   <script>
     const SUPABASE_URL = "https://naadmqzcirevppkzydfz.supabase.co";
     const SUPABASE_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let selectedAccount = null;
+    let currentUser = null;
+    let selectedAccount = "ALL";
+    let isSignUp = false;
 
-    // Inisialisasi Chart.js
     const ctx = document.getElementById('equityChart').getContext('2d');
     const chart = new Chart(ctx, {
       type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: 'Equity ($)',
-          data: [],
-          borderColor: '#38bdf8',
-          backgroundColor: 'rgba(56, 189, 248, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
-          y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
-        },
-        plugins: { legend: { display: false } }
-      }
+      data: { labels: [], datasets: [{ label: 'Equity ($)', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.2 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
 
-    // Mengambil daftar nomor akun unik langsung via REST API
-    async function loadAccounts() {
-      const selectEl = document.getElementById('accountSelect');
-      try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/account_snapshots?select=account_number&order=updated_at.desc&limit=100`, {
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`
-          }
-        });
-
-        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-        const data = await res.json();
-
-        if (!data || data.length === 0) {
-          selectEl.innerHTML = '<option value="">Data masih kosong</option>';
-          return;
-        }
-
-        const uniqueAccounts = [...new Set(data.map(item => item.account_number))];
-        const currentChoice = selectedAccount;
-        selectEl.innerHTML = '';
-
-        uniqueAccounts.forEach(acc => {
-          const option = document.createElement('option');
-          option.value = acc;
-          option.textContent = `Akun #${acc}`;
-          if (currentChoice && currentChoice == acc) option.selected = true;
-          selectEl.appendChild(option);
-        });
-
-        if (!selectedAccount && uniqueAccounts.length > 0) {
-          selectedAccount = uniqueAccounts[0];
-        }
-
-        fetchData();
-      } catch (err) {
-        selectEl.innerHTML = `<option value="">Error: ${err.message}</option>`;
+    // Fungsi Toggle Intip Password
+    function togglePasswordVisibility() {
+      const passInput = document.getElementById('password');
+      const toggleBtn = document.getElementById('togglePasswordBtn');
+      if (passInput.type === 'password') {
+        passInput.type = 'text';
+        toggleBtn.textContent = '🙈';
+      } else {
+        passInput.type = 'password';
+        toggleBtn.textContent = '👁️';
       }
+    }
+
+    // Inisialisasi Autentikasi & Auto-Login
+    async function initAuth() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        currentUser = session.user;
+        showDashboard();
+        return;
+      }
+
+      const savedEmail = localStorage.getItem('mt5_saved_email');
+      const savedPass = localStorage.getItem('mt5_saved_pass');
+      
+      if (savedEmail && savedPass) {
+        document.getElementById('email').value = savedEmail;
+        document.getElementById('password').value = savedPass;
+        document.getElementById('rememberMe').checked = true;
+        handleAuth(true);
+      }
+    }
+
+    function toggleAuthMode() {
+      isSignUp = !isSignUp;
+      document.getElementById('authTitle').textContent = isSignUp ? "Daftar Akun Baru" : "Login Dasbor MT5";
+      document.getElementById('toggleBtn').textContent = isSignUp ? "Sudah punya akun? Login" : "Belum punya akun? Daftar";
+    }
+
+    async function handleAuth(isAutoLogin = false) {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const remember = document.getElementById('rememberMe').checked;
+
+      if (!email || !password) {
+        if (!isAutoLogin) alert("Email dan password wajib diisi!");
+        return;
+      }
+
+      if (isSignUp) {
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) alert(error.message);
+        else alert("Pendaftaran berhasil! Silakan login.");
+      } else {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        
+        if (error) {
+          if (!isAutoLogin) alert(error.message);
+        } else {
+          currentUser = data.user;
+          
+          if (remember) {
+            localStorage.setItem('mt5_saved_email', email);
+            localStorage.setItem('mt5_saved_pass', password);
+          } else {
+            localStorage.removeItem('mt5_saved_email');
+            localStorage.removeItem('mt5_saved_pass');
+          }
+          
+          showDashboard();
+        }
+      }
+    }
+
+    async function handleLogout() {
+      localStorage.removeItem('mt5_saved_email');
+      localStorage.removeItem('mt5_saved_pass');
+      await supabaseClient.auth.signOut();
+      window.location.reload();
+    }
+
+    function showDashboard() {
+      document.getElementById('authSection').style.display = 'none';
+      document.getElementById('dashboardSection').style.display = 'flex';
+      document.getElementById('displayUserId').textContent = currentUser.id;
+      loadAccounts();
+      setInterval(refreshDashboard, 3000);
+    }
+
+    function copyUserId() {
+      navigator.clipboard.writeText(currentUser.id);
+      alert("USER ID berhasil disalin! Tempelkan ID ini ke input USER_ID pada EA MT5 Anda.");
+    }
+
+    async function loadAccounts() {
+      const { data } = await supabaseClient.from('account_snapshots')
+        .select('account_number').eq('user_id', currentUser.id);
+
+      if (data) {
+        const uniqueAccounts = [...new Set(data.map(item => item.account_number))];
+        let html = '<option value="ALL">-- SEMUA AKUN (GABUNGAN) --</option>';
+        uniqueAccounts.forEach(acc => {
+          html += `<option value="${acc}">Akun #${acc}</option>`;
+        });
+        document.getElementById('accountSelect').innerHTML = html;
+      }
+      refreshDashboard();
     }
 
     function onAccountChange() {
-      const selectEl = document.getElementById('accountSelect');
-      selectedAccount = selectEl.value;
-      fetchData();
+      selectedAccount = document.getElementById('accountSelect').value;
+      refreshDashboard();
     }
 
-    // Mengambil data snapshot akun yang dipilih
-    async function fetchData() {
-      if (!selectedAccount) return;
+    async function refreshDashboard() {
+      if (!currentUser) return;
+      fetchSnapshots();
+      fetchOpenPositions();
+      fetchClosedPositions();
+    }
 
-      try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/account_snapshots?account_number=eq.${selectedAccount}&order=updated_at.desc&limit=30`, {
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`
+    async function fetchSnapshots() {
+      let query = supabaseClient.from('account_snapshots').select('*').eq('user_id', currentUser.id).order('updated_at', { ascending: false }).limit(200);
+      if (selectedAccount !== "ALL") query = query.eq('account_number', selectedAccount);
+
+      const { data } = await query;
+      if (!data || data.length === 0) return;
+
+      if (selectedAccount === "ALL") {
+        const latestPerAcc = {};
+        data.forEach(row => { if(!latestPerAcc[row.account_number]) latestPerAcc[row.account_number] = row; });
+        
+        let sumBal = 0, sumEq = 0, sumFloat = 0, sumFreeM = 0;
+        Object.values(latestPerAcc).forEach(acc => {
+          sumBal += Number(acc.balance || 0); sumEq += Number(acc.equity || 0);
+          sumFloat += Number(acc.floating_pl || 0); sumFreeM += Number(acc.free_margin || 0);
+        });
+
+        document.getElementById('val-balance').textContent = `$${sumBal.toFixed(2)}`;
+        document.getElementById('val-equity').textContent = `$${sumEq.toFixed(2)}`;
+        document.getElementById('val-floating').textContent = `$${sumFloat.toFixed(2)}`;
+        document.getElementById('val-margin').textContent = `$${sumFreeM.toFixed(2)}`;
+
+        const historyData = [...data].reverse();
+        let runningEquity = {}; 
+        let combinedChartData = [];
+        let combinedLabels = [];
+
+        historyData.forEach(row => {
+          runningEquity[row.account_number] = Number(row.equity);
+          let currentTotal = Object.values(runningEquity).reduce((a, b) => a + b, 0);
+          
+          if(Object.keys(runningEquity).length > 0) {
+            combinedLabels.push(new Date(row.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+            combinedChartData.push(currentTotal);
           }
         });
 
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!data || data.length === 0) return;
+        chart.data.labels = combinedLabels;
+        chart.data.datasets[0].data = combinedChartData;
+        chart.update();
 
+      } else {
         const latest = data[0];
-        document.getElementById('val-balance').textContent = `$${Number(latest.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-        document.getElementById('val-equity').textContent = `$${Number(latest.equity).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-        
-        const profit = Number(latest.daily_profit_nominal || 0);
-        const percent = Number(latest.daily_profit_percent || 0);
-        
-        const profitEl = document.getElementById('val-profit');
-        profitEl.textContent = `${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}`;
-        profitEl.className = `stat-value ${profit >= 0 ? 'text-green' : 'text-red'}`;
-
-        const percentEl = document.getElementById('val-percent');
-        percentEl.textContent = `${percent >= 0 ? '+' : ''}${percent.toFixed(2)}%`;
-        percentEl.className = `stat-value ${percent >= 0 ? 'text-green' : 'text-red'}`;
+        document.getElementById('val-balance').textContent = `$${Number(latest.balance).toFixed(2)}`;
+        document.getElementById('val-equity').textContent = `$${Number(latest.equity).toFixed(2)}`;
+        document.getElementById('val-floating').textContent = `$${Number(latest.floating_pl || 0).toFixed(2)}`;
+        document.getElementById('val-margin').textContent = `$${Number(latest.free_margin || 0).toFixed(2)}`;
 
         const historyData = [...data].reverse();
-        chart.data.labels = historyData.map(row => new Date(row.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-        chart.data.datasets[0].data = historyData.map(row => row.equity);
+        chart.data.labels = historyData.map(r => new Date(r.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        chart.data.datasets[0].data = historyData.map(r => r.equity);
         chart.update();
-      } catch (err) {
-        console.error(err);
       }
     }
 
-    loadAccounts();
-    setInterval(loadAccounts, 10000);
-    setInterval(fetchData, 5000);
+    async function fetchOpenPositions() {
+      let query = supabaseClient.from('open_positions').select('*').eq('user_id', currentUser.id).order('ticket', { ascending: false });
+      if (selectedAccount !== "ALL") query = query.eq('account_number', selectedAccount);
+
+      const { data: positions } = await query;
+      const body = document.getElementById('openTable');
+
+      if (!positions || positions.length === 0) {
+        body.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada posisi terbuka</td></tr>';
+        return;
+      }
+
+      body.innerHTML = positions.map(p => `
+        <tr>
+          <td>#${p.account_number}</td><td>#${p.ticket}</td><td><strong>${p.symbol}</strong></td>
+          <td><span class="${p.type === 'BUY' ? 'badge-buy' : 'badge-sell'}">${p.type}</span></td>
+          <td>${Number(p.volume).toFixed(2)}</td><td>${Number(p.open_price).toFixed(5)}</td>
+          <td class="${Number(p.profit) >= 0 ? 'text-green' : 'text-red'}"><strong>$${Number(p.profit).toFixed(2)}</strong></td>
+        </tr>
+      `).join('');
+    }
+
+    async function fetchClosedPositions() {
+      let query = supabaseClient.from('closed_positions').select('*').eq('user_id', currentUser.id).order('ticket', { ascending: false });
+      if (selectedAccount !== "ALL") query = query.eq('account_number', selectedAccount);
+
+      const { data: closed } = await query;
+      const body = document.getElementById('closedTable');
+
+      if (!closed || closed.length === 0) {
+        body.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada posisi ditutup hari ini</td></tr>';
+        document.getElementById('val-winrate').textContent = "0%";
+        return;
+      }
+
+      let winCount = 0;
+      closed.forEach(c => { if(Number(c.profit) > 0) winCount++; });
+      document.getElementById('val-winrate').textContent = `${((winCount / closed.length) * 100).toFixed(1)}%`;
+
+      body.innerHTML = closed.map(c => `
+        <tr>
+          <td>#${c.account_number}</td><td>#${c.ticket}</td><td><strong>${c.symbol}</strong></td>
+          <td><span class="${c.type === 'BUY' ? 'badge-buy' : 'badge-sell'}">${c.type}</span></td>
+          <td>${Number(c.volume).toFixed(2)}</td><td>${Number(c.close_price).toFixed(5)}</td>
+          <td class="${Number(c.profit) >= 0 ? 'text-green' : 'text-red'}"><strong>$${Number(c.profit).toFixed(2)}</strong></td>
+        </tr>
+      `).join('');
+    }
+
+    async function triggerCloseAll() {
+      const targetAcc = selectedAccount === "ALL" ? prompt("Masukkan nomor akun khusus untuk Close All:") : selectedAccount;
+      if (!targetAcc) return;
+
+      if (!confirm(`Tutup paksa posisi di akun #${targetAcc}?`)) return;
+
+      await supabaseClient.from('remote_commands').insert({
+        user_id: currentUser.id,
+        account_number: targetAcc,
+        command: 'CLOSE_ALL',
+        status: 'PENDING'
+      });
+
+      alert("Perintah DARURAT CLOSE ALL telah dikirim ke MT5!");
+    }
+
+    initAuth();
   </script>
 </body>
 </html>
