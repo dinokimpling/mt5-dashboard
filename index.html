@@ -16,19 +16,8 @@
     .auth-card h2 { margin-bottom: 20px; text-align: center; }
     .input-group { margin-bottom: 15px; }
     .input-group label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px; }
-    .input-group input[type="email"], .input-group input[type="password"], .input-group input[type="text"] { width: 100%; padding: 10px; background-color: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #fff; outline: none; }
-    
-    /* Wrapper untuk Input Password & Ikon Mata */
-    .password-wrapper { position: relative; width: 100%; }
-    .password-wrapper input { padding-right: 40px; }
-    .toggle-password { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; user-select: none; font-size: 1.1rem; opacity: 0.7; transition: opacity 0.2s; }
-    .toggle-password:hover { opacity: 1; }
-
-    .checkbox-group { display: flex; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; }
-    .checkbox-group input { width: 16px; height: 16px; cursor: pointer; accent-color: #38bdf8; }
-    .checkbox-group label { margin-bottom: 0; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; }
-
-    .btn-primary { width: 100%; background-color: #38bdf8; color: #0f172a; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+    .input-group input { width: 100%; padding: 10px; background-color: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #fff; outline: none; }
+    .btn-primary { width: 100%; background-color: #38bdf8; color: #0f172a; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
     .btn-secondary { width: 100%; background-color: transparent; color: #94a3b8; border: 1px solid #334155; padding: 8px; border-radius: 6px; cursor: pointer; margin-top: 8px; font-size: 0.85rem; }
 
     /* Dashboard Layout */
@@ -65,18 +54,8 @@
     </div>
     <div class="input-group">
       <label>Password</label>
-      <div class="password-wrapper">
-        <input type="password" id="password" placeholder="••••••••">
-        <span class="toggle-password" id="togglePasswordBtn" onclick="togglePasswordVisibility()">👁️</span>
-      </div>
+      <input type="password" id="password" placeholder="••••••••">
     </div>
-    
-    <!-- Opsi Remember Me / Ingat Saya -->
-    <div class="checkbox-group">
-      <input type="checkbox" id="rememberMe" checked>
-      <label for="rememberMe">Ingat saya (Auto Login)</label>
-    </div>
-
     <button class="btn-primary" onclick="handleAuth()">LOGIN</button>
     <button class="btn-secondary" onclick="toggleAuthMode()" id="toggleBtn">Belum punya akun? Daftar</button>
   </div>
@@ -149,36 +128,12 @@
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
 
-    // Fungsi Toggle Intip Password
-    function togglePasswordVisibility() {
-      const passInput = document.getElementById('password');
-      const toggleBtn = document.getElementById('togglePasswordBtn');
-      if (passInput.type === 'password') {
-        passInput.type = 'text';
-        toggleBtn.textContent = '🙈';
-      } else {
-        passInput.type = 'password';
-        toggleBtn.textContent = '👁️';
-      }
-    }
-
-    // Inisialisasi Autentikasi & Auto-Login
+    // Check Session On Load
     async function initAuth() {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
         currentUser = session.user;
         showDashboard();
-        return;
-      }
-
-      const savedEmail = localStorage.getItem('mt5_saved_email');
-      const savedPass = localStorage.getItem('mt5_saved_pass');
-      
-      if (savedEmail && savedPass) {
-        document.getElementById('email').value = savedEmail;
-        document.getElementById('password').value = savedPass;
-        document.getElementById('rememberMe').checked = true;
-        handleAuth(true);
       }
     }
 
@@ -188,15 +143,11 @@
       document.getElementById('toggleBtn').textContent = isSignUp ? "Sudah punya akun? Login" : "Belum punya akun? Daftar";
     }
 
-    async function handleAuth(isAutoLogin = false) {
+    async function handleAuth() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const remember = document.getElementById('rememberMe').checked;
 
-      if (!email || !password) {
-        if (!isAutoLogin) alert("Email dan password wajib diisi!");
-        return;
-      }
+      if (!email || !password) return alert("Email dan password wajib diisi!");
 
       if (isSignUp) {
         const { data, error } = await supabaseClient.auth.signUp({ email, password });
@@ -204,28 +155,15 @@
         else alert("Pendaftaran berhasil! Silakan login.");
       } else {
         const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        
-        if (error) {
-          if (!isAutoLogin) alert(error.message);
-        } else {
+        if (error) alert(error.message);
+        else {
           currentUser = data.user;
-          
-          if (remember) {
-            localStorage.setItem('mt5_saved_email', email);
-            localStorage.setItem('mt5_saved_pass', password);
-          } else {
-            localStorage.removeItem('mt5_saved_email');
-            localStorage.removeItem('mt5_saved_pass');
-          }
-          
           showDashboard();
         }
       }
     }
 
     async function handleLogout() {
-      localStorage.removeItem('mt5_saved_email');
-      localStorage.removeItem('mt5_saved_pass');
       await supabaseClient.auth.signOut();
       window.location.reload();
     }
@@ -271,7 +209,7 @@
     }
 
     async function fetchSnapshots() {
-      let query = supabaseClient.from('account_snapshots').select('*').eq('user_id', currentUser.id).order('updated_at', { ascending: false }).limit(200);
+      let query = supabaseClient.from('account_snapshots').select('*').eq('user_id', currentUser.id).order('updated_at', { ascending: false }).limit(50);
       if (selectedAccount !== "ALL") query = query.eq('account_number', selectedAccount);
 
       const { data } = await query;
@@ -291,26 +229,6 @@
         document.getElementById('val-equity').textContent = `$${sumEq.toFixed(2)}`;
         document.getElementById('val-floating').textContent = `$${sumFloat.toFixed(2)}`;
         document.getElementById('val-margin').textContent = `$${sumFreeM.toFixed(2)}`;
-
-        const historyData = [...data].reverse();
-        let runningEquity = {}; 
-        let combinedChartData = [];
-        let combinedLabels = [];
-
-        historyData.forEach(row => {
-          runningEquity[row.account_number] = Number(row.equity);
-          let currentTotal = Object.values(runningEquity).reduce((a, b) => a + b, 0);
-          
-          if(Object.keys(runningEquity).length > 0) {
-            combinedLabels.push(new Date(row.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-            combinedChartData.push(currentTotal);
-          }
-        });
-
-        chart.data.labels = combinedLabels;
-        chart.data.datasets[0].data = combinedChartData;
-        chart.update();
-
       } else {
         const latest = data[0];
         document.getElementById('val-balance').textContent = `$${Number(latest.balance).toFixed(2)}`;
@@ -319,7 +237,7 @@
         document.getElementById('val-margin').textContent = `$${Number(latest.free_margin || 0).toFixed(2)}`;
 
         const historyData = [...data].reverse();
-        chart.data.labels = historyData.map(r => new Date(r.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        chart.data.labels = historyData.map(r => new Date(r.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         chart.data.datasets[0].data = historyData.map(r => r.equity);
         chart.update();
       }
