@@ -4,173 +4,180 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MT5 Multi-User Dashboard</title>
-  <!-- Tailwind CSS -->
+  
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Supabase JS -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8">
+<body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
 
-  <div class="max-w-6xl mx-auto">
-    <!-- HEADER -->
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-white flex items-center gap-2">
-        <span class="h-3 w-3 rounded-full bg-green-500 animate-pulse"></span>
-        MT5 Terminal Center
-      </h1>
-      <div id="auth-actions" class="hidden">
-        <button onclick="handleLogout()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-semibold transition">
-          Log Out
-        </button>
-      </div>
+  <!-- NAVBAR TOP BAR -->
+  <header class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+      <h1 class="text-xl font-bold tracking-wide text-white">MT5 Terminal Center</h1>
     </div>
 
-    <!-- FORM LOGIN / REGISTER -->
-    <div id="view-login" class="max-w-md mx-auto bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-xl my-12">
-      <h2 class="text-xl font-bold text-white mb-4 text-center">Masuk ke Dasbor MT5</h2>
-      <p class="text-gray-400 text-sm mb-6 text-center">Silakan login atau mendaftar akun baru untuk memantau trading MT5 kamu.</p>
+    <!-- User & Account Control (Shown when logged in) -->
+    <div id="auth-actions" class="hidden flex flex-wrap items-center gap-4">
+      <div class="text-xs text-gray-400">
+        Email: <span id="user-email" class="text-white font-medium"></span>
+        <br>
+        User ID: <span id="user-id-display" class="font-mono text-gray-300"></span>
+      </div>
+
+      <div>
+        <select id="account-select" onchange="loadDashboardData()" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="ALL">Semua Akun (Total Gabungan)</option>
+        </select>
+      </div>
+
+      <button onclick="handleLogout()" class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-2 rounded-lg font-semibold transition">
+        Logout
+      </button>
+    </div>
+  </header>
+
+  <main class="p-4 md:p-8 max-w-7xl mx-auto">
+    
+    <!-- LOGIN & REGISTER CARD VIEW -->
+    <div id="view-login" class="max-w-md mx-auto my-12 bg-gray-800 border border-gray-700 rounded-xl p-8 shadow-2xl">
+      <h2 class="text-2xl font-bold text-center mb-2">Masuk ke Dasbor MT5</h2>
+      <p class="text-gray-400 text-xs text-center mb-6">Silakan login atau mendaftar akun baru untuk memantau trading MT5 kamu.</p>
       
       <div class="space-y-4">
         <div>
-          <label class="block text-xs font-semibold text-gray-400 mb-1">EMAIL</label>
-          <input type="email" id="email" placeholder="nama@email.com" class="w-full px-3 py-2 bg-gray-900 text-white rounded border border-gray-700 focus:outline-none focus:border-blue-500">
+          <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Email</label>
+          <input type="email" id="email" placeholder="nama@email.com" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-gray-400 mb-1">PASSWORD</label>
-          <input type="password" id="password" placeholder="••••••••" class="w-full px-3 py-2 bg-gray-900 text-white rounded border border-gray-700 focus:outline-none focus:border-blue-500">
+          <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Password</label>
+          <input type="password" id="password" placeholder="••••••••" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500">
         </div>
-        <div class="flex gap-2 pt-2">
-          <button onclick="handleLogin()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-semibold transition">Login</button>
-          <button onclick="handleSignUp()" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded font-semibold transition">Daftar Baru</button>
+        <div class="pt-2 flex gap-3">
+          <button onclick="handleLogin()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition">Login</button>
+          <button onclick="handleSignUp()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition">Daftar Baru</button>
         </div>
       </div>
     </div>
 
-    <!-- DASBOR UTAMA -->
+    <!-- MAIN DASHBOARD VIEW -->
     <div id="view-dashboard" class="hidden space-y-6">
-      
-      <!-- USER INFO & ACCOUNT SELECTOR -->
-      <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div class="text-xs text-gray-400">STATUS LOGIN: <span id="user-email" class="text-white font-semibold"></span></div>
-          <div class="text-xs text-gray-400 mt-1 flex items-center gap-2">
-            <span>USER ID MT5 KAMU:</span>
-            <code id="user-id-display" class="bg-gray-900 px-2 py-0.5 rounded text-green-400 font-mono text-sm select-all border border-gray-700"></code>
-          </div>
+
+      <!-- METRIC CARDS GRID -->
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
+          <div class="text-xs text-gray-400 uppercase font-semibold">Total Balance</div>
+          <div id="val-balance" class="text-lg md:text-xl font-bold text-white mt-1">$0.00</div>
         </div>
-        
-        <div class="flex items-center gap-2 w-full md:w-auto">
-          <label class="text-xs text-gray-400 whitespace-nowrap">PILIH AKUN:</label>
-          <select id="account-select" onchange="loadDashboardData()" class="bg-gray-900 text-white border border-gray-700 rounded px-3 py-1.5 text-sm w-full md:w-auto focus:outline-none">
-            <option value="ALL">Semua Akun (Total Gabungan)</option>
-          </select>
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
+          <div class="text-xs text-gray-400 uppercase font-semibold">Total Equity</div>
+          <div id="val-equity" class="text-lg md:text-xl font-bold text-blue-400 mt-1">$0.00</div>
+        </div>
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
+          <div class="text-xs text-gray-400 uppercase font-semibold">Floating P/L</div>
+          <div id="val-floating" class="text-lg md:text-xl font-bold text-gray-300 mt-1">$0.00</div>
+        </div>
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
+          <div class="text-xs text-gray-400 uppercase font-semibold">Free Margin</div>
+          <div id="val-margin" class="text-lg md:text-xl font-bold text-gray-300 mt-1">$0.00</div>
+        </div>
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
+          <div class="text-xs text-gray-400 uppercase font-semibold">Profit Factor</div>
+          <div id="val-profit-factor" class="text-lg md:text-xl font-bold text-amber-400 mt-1">0.00</div>
+        </div>
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
+          <div class="text-xs text-gray-400 uppercase font-semibold">Max Drawdown</div>
+          <div id="val-drawdown" class="text-lg md:text-xl font-bold text-red-400 mt-1">0.00%</div>
         </div>
       </div>
 
-      <!-- METRICS CARDS -->
-      <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-          <div class="text-xs text-gray-400 font-semibold mb-1">TOTAL BALANCE</div>
-          <div id="val-balance" class="text-lg md:text-xl font-bold text-white">$0.00</div>
-        </div>
-        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-          <div class="text-xs text-gray-400 font-semibold mb-1">TOTAL EQUITY</div>
-          <div id="val-equity" class="text-lg md:text-xl font-bold text-blue-400">$0.00</div>
-        </div>
-        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-          <div class="text-xs text-gray-400 font-semibold mb-1">FLOATING P/L</div>
-          <div id="val-floating" class="text-lg md:text-xl font-bold text-gray-200">$0.00</div>
-        </div>
-        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-          <div class="text-xs text-gray-400 font-semibold mb-1">FREE MARGIN</div>
-          <div id="val-margin" class="text-lg md:text-xl font-bold text-white">$0.00</div>
-        </div>
-        <!-- METRIK BARU: PROFIT FACTOR & DRAWDOWN -->
-        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-          <div class="text-xs text-gray-400 font-semibold mb-1">PROFIT FACTOR</div>
-          <div id="val-profit-factor" class="text-lg md:text-xl font-bold text-green-400">0.00</div>
-        </div>
-        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-          <div class="text-xs text-gray-400 font-semibold mb-1">MAX DRAWDOWN</div>
-          <div id="val-drawdown" class="text-lg md:text-xl font-bold text-red-400">0.00%</div>
-        </div>
+      <!-- EA STATUS BAR -->
+      <div class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 flex items-center justify-between">
+        <span class="text-xs text-gray-400 font-semibold uppercase">EA Terdeteksi / Status:</span>
+        <span id="val-eas" class="text-sm font-mono text-emerald-400 font-medium">Mencari EA...</span>
       </div>
 
-      <!-- GRAFIK PERTUMBUHAN EQUITY REAL-TIME -->
-      <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-        <h3 class="text-md font-bold text-white mb-3">Grafik Pertumbuhan Equity</h3>
-        <div class="relative h-64 w-full">
+      <!-- GRAFIK PERTUMBUHAN EQUITY -->
+      <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow">
+        <h3 class="text-base font-semibold mb-4 text-gray-200">Grafik Pertumbuhan Equity</h3>
+        <div class="h-64 w-full">
           <canvas id="equityChart"></canvas>
         </div>
       </div>
 
-      <!-- EA STATUS -->
-      <div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-        <div class="text-xs text-gray-400 font-semibold mb-1">EA TERPASANG DI MT5:</div>
-        <div id="val-eas" class="text-sm font-semibold text-green-400">Menunggu data...</div>
-      </div>
-
-      <!-- POSISI AKTIF -->
-      <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 overflow-hidden">
-        <h3 class="text-md font-bold text-white mb-3">Posisi Aktif (Open Positions)</h3>
+      <!-- POSISI TERBUKA (OPEN POSITIONS) -->
+      <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow">
+        <h3 class="text-base font-semibold mb-4 text-emerald-400 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          Posisi Terbuka (Real-Time)
+        </h3>
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs md:text-sm">
-            <thead class="bg-gray-900 text-gray-400">
+          <table class="w-full text-left text-sm text-gray-300">
+            <thead class="bg-gray-700/50 text-xs uppercase text-gray-400">
               <tr>
-                <th class="p-2.5">AKUN</th>
-                <th class="p-2.5">TICKET</th>
-                <th class="p-2.5">SYMBOL</th>
-                <th class="p-2.5">TIPE</th>
-                <th class="p-2.5">LOT</th>
-                <th class="p-2.5">HARGA OPEN</th>
-                <th class="p-2.5">PROFIT ($)</th>
+                <th class="p-2.5">Akun</th>
+                <th class="p-2.5">Ticket</th>
+                <th class="p-2.5">Symbol</th>
+                <th class="p-2.5">Type</th>
+                <th class="p-2.5">Lot</th>
+                <th class="p-2.5">Open Price</th>
+                <th class="p-2.5">Profit/Loss</th>
               </tr>
             </thead>
             <tbody id="table-open-positions" class="divide-y divide-gray-700">
-              <tr><td colspan="7" class="p-4 text-center text-gray-500">Tidak ada posisi terbuka</td></tr>
+              <tr><td colspan="7" class="p-4 text-center text-gray-500">Memuat data...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- RIWAYAT HARI INI -->
-      <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 overflow-hidden">
-        <h3 class="text-md font-bold text-white mb-3">Riwayat Order Tutup Harian</h3>
+      <!-- RIWAYAT TRANSAKSI DITUTUP (CLOSED POSITIONS) -->
+      <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow">
+        <h3 class="text-base font-semibold mb-4 text-blue-400 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+          Riwayat Transaksi Ditutup (Hari Ini)
+        </h3>
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs md:text-sm">
-            <thead class="bg-gray-900 text-gray-400">
+          <table class="w-full text-left text-sm text-gray-300">
+            <thead class="bg-gray-700/50 text-xs uppercase text-gray-400">
               <tr>
-                <th class="p-2.5">AKUN</th>
-                <th class="p-2.5">TICKET</th>
-                <th class="p-2.5">SYMBOL</th>
-                <th class="p-2.5">TIPE</th>
-                <th class="p-2.5">LOT</th>
-                <th class="p-2.5">HARGA CLOSE</th>
-                <th class="p-2.5">PROFIT ($)</th>
+                <th class="p-2.5">Akun</th>
+                <th class="p-2.5">Ticket</th>
+                <th class="p-2.5">Symbol</th>
+                <th class="p-2.5">Type</th>
+                <th class="p-2.5">Lot</th>
+                <th class="p-2.5">Close Price</th>
+                <th class="p-2.5">Profit/Loss</th>
               </tr>
             </thead>
             <tbody id="table-closed-positions" class="divide-y divide-gray-700">
-              <tr><td colspan="7" class="p-4 text-center text-gray-500">Belum ada order ditutup hari ini</td></tr>
+              <tr><td colspan="7" class="p-4 text-center text-gray-500">Memuat data...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
     </div>
-  </div>
+  </main>
 
+  <!-- JAVASCRIPT LOGIC & SUPABASE SCRIPT -->
   <script>
     const SUPABASE_URL = "https://naadmqzcirevppkzydfz.supabase.co";
     const SUPABASE_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92";
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    // Inisialisasi client Supabase dengan nama variabel terpisah
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentUserId = null;
     let equityChartInstance = null;
 
+    // Memeriksa Sesi Login Pengguna saat halaman pertama dimuat
     async function initAuth() {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
         currentUserId = session.user.id;
         document.getElementById('user-email').innerText = session.user.email;
@@ -181,7 +188,7 @@
         
         await loadAccountDropdown();
         await loadDashboardData();
-        setInterval(loadDashboardData, 3000);
+        setInterval(loadDashboardData, 3000); // Auto refresh tiap 3 detik
       } else {
         document.getElementById('view-login').classList.remove('hidden');
         document.getElementById('view-dashboard').classList.add('hidden');
@@ -189,50 +196,58 @@
       }
     }
 
+    // Fungsi Pendaftaran Pengguna Baru
     async function handleSignUp() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      if (!email || !password) return alert("Email & Password harus diisi!");
+      if (!email || !password) return alert("Email & Password wajib diisi!");
 
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
       if (error) alert("Gagal Daftar: " + error.message);
-      else alert("Pendaftaran berhasil! Silakan login.");
+      else alert("Pendaftaran berhasil! Silakan klik tombol Login.");
     }
 
+    // Fungsi Login
     async function handleLogin() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      if (!email || !password) return alert("Email & Password harus diisi!");
+      if (!email || !password) return alert("Email & Password wajib diisi!");
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if (error) alert("Gagal Login: " + error.message);
       else initAuth();
     }
 
+    // Fungsi Logout
     async function handleLogout() {
-      await supabase.auth.signOut();
+      await supabaseClient.auth.signOut();
       location.reload();
     }
 
+    // Memuat daftar Akun MT5 milik user ke Dropdown Filter
     async function loadAccountDropdown() {
-      const { data } = await supabase.from('accounts').select('account_number').eq('user_id', currentUserId);
+      const { data } = await supabaseClient.from('account_snapshots').select('account_number').eq('user_id', currentUserId);
       const select = document.getElementById('account-select');
       const currentVal = select.value;
+      
       select.innerHTML = '<option value="ALL">Semua Akun (Total Gabungan)</option>';
-      if (data) {
-        data.forEach(acc => {
-          select.innerHTML += `<option value="${acc.account_number}">Akun #${acc.account_number}</option>`;
+      
+      if (data && data.length > 0) {
+        const uniqueAccounts = [...new Set(data.map(item => item.account_number))];
+        uniqueAccounts.forEach(acc => {
+          select.innerHTML += `<option value="${acc}">Akun #${acc}</option>`;
         });
       }
       select.value = currentVal || 'ALL';
     }
 
+    // Memuat Seluruh Data Ringkasan, Posisi, Riwayat, dan Grafik
     async function loadDashboardData() {
       if (!currentUserId) return;
       const selectedAcc = document.getElementById('account-select').value;
 
-      // 1. Fetch Snapshots
-      let querySnap = supabase.from('account_snapshots').select('*').eq('user_id', currentUserId);
+      // 1. Fetch Account Snapshots
+      let querySnap = supabaseClient.from('account_snapshots').select('*').eq('user_id', currentUserId);
       if (selectedAcc !== 'ALL') querySnap = querySnap.eq('account_number', selectedAcc);
       const { data: snapshots } = await querySnap;
 
@@ -260,7 +275,7 @@
       }
 
       // 2. Fetch Open Positions
-      let queryOpen = supabase.from('open_positions').select('*').eq('user_id', currentUserId);
+      let queryOpen = supabaseClient.from('open_positions').select('*').eq('user_id', currentUserId);
       if (selectedAcc !== 'ALL') queryOpen = queryOpen.eq('account_number', selectedAcc);
       const { data: openPos } = await queryOpen;
 
@@ -281,8 +296,8 @@
         openTbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-500">Tidak ada posisi terbuka</td></tr>`;
       }
 
-      // 3. Fetch Closed Positions & Kalkulasi Profit Factor, Drawdown, Grafik Equity
-      let queryClosed = supabase.from('closed_positions').select('*').eq('user_id', currentUserId);
+      // 3. Fetch Closed Positions, Profit Factor, Drawdown, & Grafik Equity
+      let queryClosed = supabaseClient.from('closed_positions').select('*').eq('user_id', currentUserId);
       if (selectedAcc !== 'ALL') queryClosed = queryClosed.eq('account_number', selectedAcc);
       const { data: closedPos } = await queryClosed;
 
@@ -300,7 +315,6 @@
           </tr>
         `).join('');
 
-        // Kalkulasi Profit Factor & Max Drawdown
         let grossProfit = 0;
         let grossLoss = 0;
         let sortedPos = [...closedPos].sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
@@ -308,7 +322,7 @@
         let chartLabels = ['Start'];
         let chartData = [];
         let sumClosedProfit = sortedPos.reduce((acc, x) => acc + Number(x.profit || 0), 0);
-        let baseBalance = totalBalance - sumClosedProfit; // estimasi saldo awal
+        let baseBalance = totalBalance - sumClosedProfit;
         let runningEquity = baseBalance;
         
         chartData.push(Number(runningEquity.toFixed(2)));
@@ -345,6 +359,7 @@
       }
     }
 
+    // Render / Update Grafik Chart.js
     function renderEquityChart(labels, dataPoints) {
       const ctx = document.getElementById('equityChart').getContext('2d');
       
@@ -384,6 +399,7 @@
       }
     }
 
+    // Jalankan pengecekan Login pertama kali saat halaman terbuka
     initAuth();
   </script>
 </body>
