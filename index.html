@@ -11,6 +11,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Supabase JS Client CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- html2pdf.js CDN (Untuk Export PDF) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
 
@@ -21,7 +23,7 @@
       <h1 class="text-xl font-bold tracking-wide text-white">MT5 Terminal Center</h1>
     </div>
 
-    <!-- User & Account Control (Shown when logged in) -->
+    <!-- User & Account Control -->
     <div id="auth-actions" class="hidden flex flex-wrap items-center gap-4">
       <div class="text-xs text-gray-400">
         Email: <span id="user-email" class="text-white font-medium"></span>
@@ -29,11 +31,28 @@
         User ID: <span id="user-id-display" class="font-mono text-gray-300"></span>
       </div>
 
+      <!-- Filter Akun -->
       <div>
         <select id="account-select" onchange="loadDashboardData()" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="ALL">Semua Akun (Total Gabungan)</option>
         </select>
       </div>
+
+      <!-- Filter Periode Waktu -->
+      <div>
+        <select id="period-select" onchange="loadDashboardData()" class="bg-gray-700 border border-gray-600 text-amber-400 text-sm font-semibold rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500">
+          <option value="TODAY">Hari Ini</option>
+          <option value="WEEK">Minggu Ini (7 Hari)</option>
+          <option value="MONTH" selected>Bulan Ini (30 Hari)</option>
+          <option value="ALL">Semua Riwayat</option>
+        </select>
+      </div>
+
+      <!-- Tombol Download PDF -->
+      <button onclick="downloadReportPDF()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg font-semibold transition flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        Download PDF
+      </button>
 
       <button onclick="handleLogout()" class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-2 rounded-lg font-semibold transition">
         Logout
@@ -43,7 +62,7 @@
 
   <main class="p-4 md:p-8 max-w-7xl mx-auto">
     
-    <!-- LOGIN & REGISTER CARD VIEW -->
+    <!-- LOGIN VIEW -->
     <div id="view-login" class="max-w-md mx-auto my-12 bg-gray-800 border border-gray-700 rounded-xl p-8 shadow-2xl">
       <h2 class="text-2xl font-bold text-center mb-2">Masuk ke Dasbor MT5</h2>
       <p class="text-gray-400 text-xs text-center mb-6">Silakan login atau mendaftar akun baru untuk memantau trading MT5 kamu.</p>
@@ -64,118 +83,129 @@
       </div>
     </div>
 
-    <!-- MAIN DASHBOARD VIEW -->
+    <!-- MAIN DASHBOARD VIEW (AREA EXPORT PDF) -->
     <div id="view-dashboard" class="hidden space-y-6">
 
-      <!-- METRIC CARDS GRID -->
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
-          <div class="text-xs text-gray-400 uppercase font-semibold">Total Balance</div>
-          <div id="val-balance" class="text-lg md:text-xl font-bold text-white mt-1">$0.00</div>
-        </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
-          <div class="text-xs text-gray-400 uppercase font-semibold">Total Equity</div>
-          <div id="val-equity" class="text-lg md:text-xl font-bold text-blue-400 mt-1">$0.00</div>
-        </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
-          <div class="text-xs text-gray-400 uppercase font-semibold">Floating P/L</div>
-          <div id="val-floating" class="text-lg md:text-xl font-bold text-gray-300 mt-1">$0.00</div>
-        </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
-          <div class="text-xs text-gray-400 uppercase font-semibold">Free Margin</div>
-          <div id="val-margin" class="text-lg md:text-xl font-bold text-gray-300 mt-1">$0.00</div>
-        </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
-          <div class="text-xs text-gray-400 uppercase font-semibold">Profit Factor</div>
-          <div id="val-profit-factor" class="text-lg md:text-xl font-bold text-amber-400 mt-1">0.00</div>
-        </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
-          <div class="text-xs text-gray-400 uppercase font-semibold">Max Drawdown</div>
-          <div id="val-drawdown" class="text-lg md:text-xl font-bold text-red-400 mt-1">0.00%</div>
-        </div>
-      </div>
+      <div id="pdf-content" class="space-y-6 p-2">
 
-      <!-- EA STATUS BAR -->
-      <div class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 flex items-center justify-between">
-        <span class="text-xs text-gray-400 font-semibold uppercase">EA Terdeteksi / Status:</span>
-        <span id="val-eas" class="text-sm font-mono text-emerald-400 font-medium">Mencari EA...</span>
-      </div>
-
-      <!-- GRAFIK PERTUMBUHAN EQUITY -->
-      <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow">
-        <h3 class="text-base font-semibold mb-4 text-gray-200">Grafik Pertumbuhan Equity</h3>
-        <div class="h-64 w-full">
-          <canvas id="equityChart"></canvas>
+        <!-- KOP LAPORAN PDF (Tampil rapi saat di-export) -->
+        <div class="border-b border-gray-700 pb-3 flex justify-between items-center">
+          <div>
+            <h2 class="text-lg font-bold text-white">Laporan Performa Trading MT5</h2>
+            <p class="text-xs text-gray-400">Periode: <span id="pdf-period-label" class="text-amber-400 font-semibold">Bulan Ini</span></p>
+          </div>
+          <div class="text-right text-xs text-gray-400">
+            Dicetak: <span id="pdf-date-stamp"></span>
+          </div>
         </div>
-      </div>
 
-      <!-- POSISI TERBUKA (OPEN POSITIONS) -->
-      <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow">
-        <h3 class="text-base font-semibold mb-4 text-emerald-400 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          Posisi Terbuka (Real-Time)
-        </h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm text-gray-300">
-            <thead class="bg-gray-700/50 text-xs uppercase text-gray-400">
-              <tr>
-                <th class="p-2.5">Akun</th>
-                <th class="p-2.5">Ticket</th>
-                <th class="p-2.5">Symbol</th>
-                <th class="p-2.5">Type</th>
-                <th class="p-2.5">Lot</th>
-                <th class="p-2.5">Open Price</th>
-                <th class="p-2.5">Profit/Loss</th>
-              </tr>
-            </thead>
-            <tbody id="table-open-positions" class="divide-y divide-gray-700">
-              <tr><td colspan="7" class="p-4 text-center text-gray-500">Memuat data...</td></tr>
-            </tbody>
-          </table>
+        <!-- METRIC CARDS GRID -->
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
+            <div class="text-[10px] text-gray-400 uppercase font-semibold">Balance Awal Periode</div>
+            <div id="val-start-balance" class="text-base md:text-lg font-bold text-gray-200 mt-0.5">$0.00</div>
+          </div>
+          <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
+            <div class="text-[10px] text-gray-400 uppercase font-semibold">Balance Sekarang</div>
+            <div id="val-balance" class="text-base md:text-lg font-bold text-white mt-0.5">$0.00</div>
+          </div>
+          <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
+            <div class="text-[10px] text-gray-400 uppercase font-semibold">Total Equity</div>
+            <div id="val-equity" class="text-base md:text-lg font-bold text-blue-400 mt-0.5">$0.00</div>
+          </div>
+          <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
+            <div class="text-[10px] text-gray-400 uppercase font-semibold">Total Profit Periode</div>
+            <div id="val-period-profit" class="text-base md:text-lg font-bold text-emerald-400 mt-0.5">$0.00</div>
+          </div>
+          <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
+            <div class="text-[10px] text-gray-400 uppercase font-semibold">Floating P/L</div>
+            <div id="val-floating" class="text-base md:text-lg font-bold text-gray-300 mt-0.5">$0.00</div>
+          </div>
+          <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
+            <div class="text-[10px] text-gray-400 uppercase font-semibold">Profit Factor</div>
+            <div id="val-profit-factor" class="text-base md:text-lg font-bold text-amber-400 mt-0.5">0.00</div>
+          </div>
+          <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
+            <div class="text-[10px] text-gray-400 uppercase font-semibold">Max Drawdown</div>
+            <div id="val-drawdown" class="text-base md:text-lg font-bold text-red-400 mt-0.5">0.00%</div>
+          </div>
         </div>
-      </div>
 
-      <!-- RIWAYAT TRANSAKSI DITUTUP (CLOSED POSITIONS) -->
-      <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow">
-        <h3 class="text-base font-semibold mb-4 text-blue-400 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-blue-400"></span>
-          Riwayat Transaksi Ditutup (Hari Ini)
-        </h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm text-gray-300">
-            <thead class="bg-gray-700/50 text-xs uppercase text-gray-400">
-              <tr>
-                <th class="p-2.5">Akun</th>
-                <th class="p-2.5">Ticket</th>
-                <th class="p-2.5">Symbol</th>
-                <th class="p-2.5">Type</th>
-                <th class="p-2.5">Lot</th>
-                <th class="p-2.5">Close Price</th>
-                <th class="p-2.5">Profit/Loss</th>
-              </tr>
-            </thead>
-            <tbody id="table-closed-positions" class="divide-y divide-gray-700">
-              <tr><td colspan="7" class="p-4 text-center text-gray-500">Memuat data...</td></tr>
-            </tbody>
-          </table>
+        <!-- GRAFIK PERTUMBUHAN EQUITY -->
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
+          <h3 class="text-sm font-semibold mb-3 text-gray-200">Grafik Pertumbuhan Equity (Periode Terpilih)</h3>
+          <div class="h-60 w-full">
+            <canvas id="equityChart"></canvas>
+          </div>
         </div>
+
+        <!-- POSISI TERBUKA -->
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
+          <h3 class="text-sm font-semibold mb-3 text-emerald-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            Posisi Terbuka (Real-Time)
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-gray-300">
+              <thead class="bg-gray-700/50 uppercase text-gray-400">
+                <tr>
+                  <th class="p-2">Akun</th>
+                  <th class="p-2">Ticket</th>
+                  <th class="p-2">Symbol</th>
+                  <th class="p-2">Type</th>
+                  <th class="p-2">Lot</th>
+                  <th class="p-2">Open Price</th>
+                  <th class="p-2">Profit/Loss</th>
+                </tr>
+              </thead>
+              <tbody id="table-open-positions" class="divide-y divide-gray-700">
+                <tr><td colspan="7" class="p-3 text-center text-gray-500">Memuat data...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- RIWAYAT TRANSAKSI DITUTUP -->
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
+          <h3 class="text-sm font-semibold mb-3 text-blue-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+            Riwayat Transaksi Ditutup (Sesuai Periode)
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-gray-300">
+              <thead class="bg-gray-700/50 uppercase text-gray-400">
+                <tr>
+                  <th class="p-2">Waktu Tutup</th>
+                  <th class="p-2">Akun</th>
+                  <th class="p-2">Ticket</th>
+                  <th class="p-2">Symbol</th>
+                  <th class="p-2">Type</th>
+                  <th class="p-2">Lot</th>
+                  <th class="p-2">Close Price</th>
+                  <th class="p-2">Profit/Loss</th>
+                </tr>
+              </thead>
+              <tbody id="table-closed-positions" class="divide-y divide-gray-700">
+                <tr><td colspan="8" class="p-3 text-center text-gray-500">Memuat data...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
     </div>
   </main>
 
-  <!-- JAVASCRIPT LOGIC & SUPABASE SCRIPT -->
   <script>
     const SUPABASE_URL = "https://naadmqzcirevppkzydfz.supabase.co";
     const SUPABASE_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92";
     
-    // Inisialisasi client Supabase dengan nama variabel terpisah
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentUserId = null;
     let equityChartInstance = null;
 
-    // Memeriksa Sesi Login Pengguna saat halaman pertama dimuat
     async function initAuth() {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
@@ -188,7 +218,7 @@
         
         await loadAccountDropdown();
         await loadDashboardData();
-        setInterval(loadDashboardData, 3000); // Auto refresh tiap 3 detik
+        setInterval(loadDashboardData, 3000);
       } else {
         document.getElementById('view-login').classList.remove('hidden');
         document.getElementById('view-dashboard').classList.add('hidden');
@@ -196,7 +226,6 @@
       }
     }
 
-    // Fungsi Pendaftaran Pengguna Baru
     async function handleSignUp() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
@@ -207,7 +236,6 @@
       else alert("Pendaftaran berhasil! Silakan klik tombol Login.");
     }
 
-    // Fungsi Login
     async function handleLogin() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
@@ -218,13 +246,11 @@
       else initAuth();
     }
 
-    // Fungsi Logout
     async function handleLogout() {
       await supabaseClient.auth.signOut();
       location.reload();
     }
 
-    // Memuat daftar Akun MT5 milik user ke Dropdown Filter
     async function loadAccountDropdown() {
       const { data } = await supabaseClient.from('account_snapshots').select('account_number').eq('user_id', currentUserId);
       const select = document.getElementById('account-select');
@@ -241,10 +267,15 @@
       select.value = currentVal || 'ALL';
     }
 
-    // Memuat Seluruh Data Ringkasan, Posisi, Riwayat, dan Grafik
     async function loadDashboardData() {
       if (!currentUserId) return;
       const selectedAcc = document.getElementById('account-select').value;
+      const period = document.getElementById('period-select').value;
+
+      // Update Label PDF
+      const periodText = document.getElementById('period-select').options[document.getElementById('period-select').selectedIndex].text;
+      document.getElementById('pdf-period-label').innerText = periodText;
+      document.getElementById('pdf-date-stamp').innerText = new Date().toLocaleString('id-ID');
 
       // 1. Fetch Account Snapshots
       let querySnap = supabaseClient.from('account_snapshots').select('*').eq('user_id', currentUserId);
@@ -253,13 +284,11 @@
 
       let totalBalance = 0;
       if (snapshots && snapshots.length > 0) {
-        let b = 0, e = 0, f = 0, m = 0, eas = [];
+        let b = 0, e = 0, f = 0;
         snapshots.forEach(s => {
           b += Number(s.balance || 0);
           e += Number(s.equity || 0);
           f += Number(s.floating_pl || 0);
-          m += Number(s.free_margin || 0);
-          if (s.installed_eas && !eas.includes(s.installed_eas)) eas.push(s.installed_eas);
         });
 
         totalBalance = b;
@@ -268,10 +297,7 @@
         
         const floatEl = document.getElementById('val-floating');
         floatEl.innerText = `$${f.toFixed(2)}`;
-        floatEl.className = `text-lg md:text-xl font-bold ${f >= 0 ? 'text-green-400' : 'text-red-400'}`;
-        
-        document.getElementById('val-margin').innerText = `$${m.toFixed(2)}`;
-        document.getElementById('val-eas').innerText = eas.length > 0 ? eas.join(', ') : 'Tidak ada EA terdeteksi';
+        floatEl.className = `text-base md:text-lg font-bold ${f >= 0 ? 'text-green-400' : 'text-red-400'}`;
       }
 
       // 2. Fetch Open Positions
@@ -283,83 +309,125 @@
       if (openPos && openPos.length > 0) {
         openTbody.innerHTML = openPos.map(p => `
           <tr class="hover:bg-gray-750">
-            <td class="p-2.5 font-mono">#${p.account_number}</td>
-            <td class="p-2.5 font-mono text-gray-400">${p.ticket}</td>
-            <td class="p-2.5 font-bold">${p.symbol}</td>
-            <td class="p-2.5 font-bold ${p.type === 'BUY' ? 'text-green-400' : 'text-red-400'}">${p.type}</td>
-            <td class="p-2.5">${Number(p.lots).toFixed(2)}</td>
-            <td class="p-2.5 font-mono">${p.open_price}</td>
-            <td class="p-2.5 font-bold ${Number(p.profit) >= 0 ? 'text-green-400' : 'text-red-400'}">$${Number(p.profit).toFixed(2)}</td>
+            <td class="p-2 font-mono">#${p.account_number}</td>
+            <td class="p-2 font-mono text-gray-400">${p.ticket}</td>
+            <td class="p-2 font-bold">${p.symbol}</td>
+            <td class="p-2 font-bold ${p.type === 'BUY' ? 'text-green-400' : 'text-red-400'}">${p.type}</td>
+            <td class="p-2">${Number(p.lots).toFixed(2)}</td>
+            <td class="p-2 font-mono">${p.open_price}</td>
+            <td class="p-2 font-bold ${Number(p.profit) >= 0 ? 'text-green-400' : 'text-red-400'}">$${Number(p.profit).toFixed(2)}</td>
           </tr>
         `).join('');
       } else {
-        openTbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-500">Tidak ada posisi terbuka</td></tr>`;
+        openTbody.innerHTML = `<tr><td colspan="7" class="p-3 text-center text-gray-500">Tidak ada posisi terbuka</td></tr>`;
       }
 
-      // 3. Fetch Closed Positions, Profit Factor, Drawdown, & Grafik Equity
+      // 3. Fetch & Filter Closed Positions Berdasarkan Periode
       let queryClosed = supabaseClient.from('closed_positions').select('*').eq('user_id', currentUserId);
       if (selectedAcc !== 'ALL') queryClosed = queryClosed.eq('account_number', selectedAcc);
       const { data: closedPos } = await queryClosed;
 
       const closedTbody = document.getElementById('table-closed-positions');
       if (closedPos && closedPos.length > 0) {
-        closedTbody.innerHTML = closedPos.map(p => `
-          <tr class="hover:bg-gray-750">
-            <td class="p-2.5 font-mono">#${p.account_number}</td>
-            <td class="p-2.5 font-mono text-gray-400">${p.ticket}</td>
-            <td class="p-2.5 font-bold">${p.symbol}</td>
-            <td class="p-2.5 font-bold ${p.type === 'BUY' ? 'text-green-400' : 'text-red-400'}">${p.type}</td>
-            <td class="p-2.5">${Number(p.lots).toFixed(2)}</td>
-            <td class="p-2.5 font-mono">${p.close_price}</td>
-            <td class="p-2.5 font-bold ${Number(p.profit) >= 0 ? 'text-green-400' : 'text-red-400'}">$${Number(p.profit).toFixed(2)}</td>
-          </tr>
-        `).join('');
 
-        let grossProfit = 0;
-        let grossLoss = 0;
-        let sortedPos = [...closedPos].sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-
-        let chartLabels = ['Start'];
-        let chartData = [];
-        let sumClosedProfit = sortedPos.reduce((acc, x) => acc + Number(x.profit || 0), 0);
-        let baseBalance = totalBalance - sumClosedProfit;
-        let runningEquity = baseBalance;
-        
-        chartData.push(Number(runningEquity.toFixed(2)));
-
-        let maxPeak = runningEquity;
-        let maxDrawdownPct = 0;
-
-        sortedPos.forEach((p, idx) => {
-          let prof = Number(p.profit || 0);
-          if (prof > 0) grossProfit += prof;
-          if (prof < 0) grossLoss += Math.abs(prof);
-
-          runningEquity += prof;
-          chartLabels.push(`Trade #${idx+1}`);
-          chartData.push(Number(runningEquity.toFixed(2)));
-
-          if (runningEquity > maxPeak) maxPeak = runningEquity;
-          let currentDD = maxPeak > 0 ? ((maxPeak - runningEquity) / maxPeak) * 100 : 0;
-          if (currentDD > maxDrawdownPct) maxDrawdownPct = currentDD;
+        // Filter berdasarkan tanggal
+        const now = new Date();
+        let filteredPos = closedPos.filter(item => {
+          const itemDate = new Date(item.created_at);
+          if (period === 'TODAY') {
+            return itemDate.toDateString() === now.toDateString();
+          } else if (period === 'WEEK') {
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(now.getDate() - 7);
+            return itemDate >= sevenDaysAgo;
+          } else if (period === 'MONTH') {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(now.getDate() - 30);
+            return itemDate >= thirtyDaysAgo;
+          }
+          return true; // ALL
         });
 
-        let profitFactor = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? 99.99 : 0.00);
-        
-        document.getElementById('val-profit-factor').innerText = profitFactor.toFixed(2);
-        document.getElementById('val-drawdown').innerText = `${maxDrawdownPct.toFixed(2)}%`;
+        if (filteredPos.length > 0) {
+          filteredPos.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
 
-        renderEquityChart(chartLabels, chartData);
+          closedTbody.innerHTML = filteredPos.map(p => `
+            <tr class="hover:bg-gray-750">
+              <td class="p-2 text-gray-400 font-mono">${new Date(p.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</td>
+              <td class="p-2 font-mono">#${p.account_number}</td>
+              <td class="p-2 font-mono text-gray-400">${p.ticket}</td>
+              <td class="p-2 font-bold">${p.symbol}</td>
+              <td class="p-2 font-bold ${p.type === 'BUY' ? 'text-green-400' : 'text-red-400'}">${p.type}</td>
+              <td class="p-2">${Number(p.lots).toFixed(2)}</td>
+              <td class="p-2 font-mono">${p.close_price}</td>
+              <td class="p-2 font-bold ${Number(p.profit) >= 0 ? 'text-green-400' : 'text-red-400'}">$${Number(p.profit).toFixed(2)}</td>
+            </tr>
+          `).join('');
+
+          let grossProfit = 0;
+          let grossLoss = 0;
+          let totalPeriodProfit = 0;
+
+          let chartLabels = ['Start'];
+          let chartData = [];
+
+          filteredPos.forEach(p => {
+            let prof = Number(p.profit || 0);
+            totalPeriodProfit += prof;
+            if (prof > 0) grossProfit += prof;
+            if (prof < 0) grossLoss += Math.abs(prof);
+          });
+
+          // Hitung Balance Awal Periode
+          let startBalance = totalBalance - totalPeriodProfit;
+          document.getElementById('val-start-balance').innerText = `$${startBalance.toFixed(2)}`;
+          
+          const profEl = document.getElementById('val-period-profit');
+          profEl.innerText = `$${totalPeriodProfit.toFixed(2)}`;
+          profEl.className = `text-base md:text-lg font-bold ${totalPeriodProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+
+          let runningEquity = startBalance;
+          chartData.push(Number(runningEquity.toFixed(2)));
+
+          let maxPeak = runningEquity;
+          let maxDrawdownPct = 0;
+
+          filteredPos.forEach((p, idx) => {
+            let prof = Number(p.profit || 0);
+            runningEquity += prof;
+            chartLabels.push(`#${idx+1}`);
+            chartData.push(Number(runningEquity.toFixed(2)));
+
+            if (runningEquity > maxPeak) maxPeak = runningEquity;
+            let currentDD = maxPeak > 0 ? ((maxPeak - runningEquity) / maxPeak) * 100 : 0;
+            if (currentDD > maxDrawdownPct) maxDrawdownPct = currentDD;
+          });
+
+          let profitFactor = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? 99.99 : 0.00);
+          
+          document.getElementById('val-profit-factor').innerText = profitFactor.toFixed(2);
+          document.getElementById('val-drawdown').innerText = `${maxDrawdownPct.toFixed(2)}%`;
+
+          renderEquityChart(chartLabels, chartData);
+
+        } else {
+          emptyClosedTable(totalBalance);
+        }
 
       } else {
-        closedTbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-500">Belum ada order ditutup hari ini</td></tr>`;
-        document.getElementById('val-profit-factor').innerText = "0.00";
-        document.getElementById('val-drawdown').innerText = "0.00%";
-        renderEquityChart(['Start'], [totalBalance]);
+        emptyClosedTable(totalBalance);
       }
     }
 
-    // Render / Update Grafik Chart.js
+    function emptyClosedTable(balance) {
+      document.getElementById('table-closed-positions').innerHTML = `<tr><td colspan="8" class="p-3 text-center text-gray-500">Tidak ada transaksi pada periode ini</td></tr>`;
+      document.getElementById('val-start-balance').innerText = `$${balance.toFixed(2)}`;
+      document.getElementById('val-period-profit').innerText = "$0.00";
+      document.getElementById('val-profit-factor').innerText = "0.00";
+      document.getElementById('val-drawdown').innerText = "0.00%";
+      renderEquityChart(['Start'], [balance]);
+    }
+
     function renderEquityChart(labels, dataPoints) {
       const ctx = document.getElementById('equityChart').getContext('2d');
       
@@ -399,7 +467,22 @@
       }
     }
 
-    // Jalankan pengecekan Login pertama kali saat halaman terbuka
+    // Fungsi Mengunduh Laporan PDF
+    function downloadReportPDF() {
+      const element = document.getElementById('pdf-content');
+      const periodName = document.getElementById('period-select').value;
+      
+      const opt = {
+        margin:       0.3,
+        filename:     `Laporan_MT5_${periodName}_${new Date().toISOString().slice(0,10)}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, backgroundColor: '#111827' },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+      };
+
+      html2pdf().set(opt).from(element).save();
+    }
+
     initAuth();
   </script>
 </body>
