@@ -5,25 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MT5 Multi-User Dashboard</title>
   
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Supabase JS Client CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- html2pdf.js CDN (Untuk Export PDF) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
 
-  <!-- NAVBAR TOP BAR -->
   <header class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
     <div class="flex items-center gap-3">
       <div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
       <h1 class="text-xl font-bold tracking-wide text-white">MT5 Terminal Center</h1>
     </div>
 
-    <!-- User & Account Control -->
     <div id="auth-actions" class="hidden flex flex-wrap items-center gap-4">
       <div class="text-xs text-gray-400">
         Email: <span id="user-email" class="text-white font-medium"></span>
@@ -31,14 +25,12 @@
         User ID: <span id="user-id-display" class="font-mono text-gray-300"></span>
       </div>
 
-      <!-- Filter Akun -->
       <div>
         <select id="account-select" onchange="loadDashboardData()" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="ALL">Semua Akun (Total Gabungan)</option>
         </select>
       </div>
 
-      <!-- Filter Periode Waktu -->
       <div>
         <select id="period-select" onchange="loadDashboardData()" class="bg-gray-700 border border-gray-600 text-amber-400 text-sm font-semibold rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500">
           <option value="TODAY">Hari Ini</option>
@@ -48,7 +40,6 @@
         </select>
       </div>
 
-      <!-- Tombol Download PDF -->
       <button onclick="downloadReportPDF()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg font-semibold transition flex items-center gap-1.5">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
         Download PDF
@@ -62,7 +53,6 @@
 
   <main class="p-4 md:p-8 max-w-7xl mx-auto">
     
-    <!-- LOGIN VIEW -->
     <div id="view-login" class="max-w-md mx-auto my-12 bg-gray-800 border border-gray-700 rounded-xl p-8 shadow-2xl">
       <h2 class="text-2xl font-bold text-center mb-2">Masuk ke Dasbor MT5</h2>
       <p class="text-gray-400 text-xs text-center mb-6">Silakan login atau mendaftar akun baru untuk memantau trading MT5 kamu.</p>
@@ -83,12 +73,10 @@
       </div>
     </div>
 
-    <!-- MAIN DASHBOARD VIEW (AREA EXPORT PDF) -->
     <div id="view-dashboard" class="hidden space-y-6">
 
       <div id="pdf-content" class="space-y-6 p-2">
 
-        <!-- KOP LAPORAN PDF (Tampil rapi saat di-export) -->
         <div class="border-b border-gray-700 pb-3 flex justify-between items-center">
           <div>
             <h2 class="text-lg font-bold text-white">Laporan Performa Trading MT5</h2>
@@ -99,7 +87,6 @@
           </div>
         </div>
 
-        <!-- METRIC CARDS GRID -->
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
           <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
             <div class="text-[10px] text-gray-400 uppercase font-semibold">Balance Awal Periode</div>
@@ -131,7 +118,6 @@
           </div>
         </div>
 
-        <!-- GRAFIK PERTUMBUHAN EQUITY -->
         <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
           <h3 class="text-sm font-semibold mb-3 text-gray-200">Grafik Pertumbuhan Equity (Periode Terpilih)</h3>
           <div class="h-60 w-full">
@@ -139,7 +125,6 @@
           </div>
         </div>
 
-        <!-- POSISI TERBUKA -->
         <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
           <h3 class="text-sm font-semibold mb-3 text-emerald-400 flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
@@ -165,7 +150,6 @@
           </div>
         </div>
 
-        <!-- RIWAYAT TRANSAKSI DITUTUP -->
         <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
           <h3 class="text-sm font-semibold mb-3 text-blue-400 flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-blue-400"></span>
@@ -205,6 +189,20 @@
 
     let currentUserId = null;
     let equityChartInstance = null;
+
+    // Fungsi parsing tanggal yang kompatibel 100% dengan Safari Mac
+    function parseSafeDate(dateStr) {
+      if (!dateStr) return new Date(0);
+      let str = String(dateStr).trim();
+      if (str.includes(' ') && !str.includes('T')) {
+        str = str.replace(' ', 'T');
+      }
+      let d = new Date(str);
+      if (isNaN(d.getTime())) {
+        d = new Date(str.replace(/-/g, '/').replace(/\./g, '/'));
+      }
+      return isNaN(d.getTime()) ? new Date() : d;
+    }
 
     async function initAuth() {
       const { data: { session } } = await supabaseClient.auth.getSession();
@@ -272,7 +270,6 @@
       const selectedAcc = document.getElementById('account-select').value;
       const period = document.getElementById('period-select').value;
 
-      // Update Label PDF
       const periodText = document.getElementById('period-select').options[document.getElementById('period-select').selectedIndex].text;
       document.getElementById('pdf-period-label').innerText = periodText;
       document.getElementById('pdf-date-stamp').innerText = new Date().toLocaleString('id-ID');
@@ -330,10 +327,9 @@
       const closedTbody = document.getElementById('table-closed-positions');
       if (closedPos && closedPos.length > 0) {
 
-        // Filter berdasarkan tanggal
         const now = new Date();
         let filteredPos = closedPos.filter(item => {
-          const itemDate = new Date(item.created_at);
+          const itemDate = parseSafeDate(item.created_at);
           if (period === 'TODAY') {
             return itemDate.toDateString() === now.toDateString();
           } else if (period === 'WEEK') {
@@ -349,20 +345,24 @@
         });
 
         if (filteredPos.length > 0) {
-          filteredPos.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+          filteredPos.sort((a,b) => parseSafeDate(a.created_at) - parseSafeDate(b.created_at));
 
-          closedTbody.innerHTML = filteredPos.map(p => `
-            <tr class="hover:bg-gray-750">
-              <td class="p-2 text-gray-400 font-mono">${new Date(p.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</td>
-              <td class="p-2 font-mono">#${p.account_number}</td>
-              <td class="p-2 font-mono text-gray-400">${p.ticket}</td>
-              <td class="p-2 font-bold">${p.symbol}</td>
-              <td class="p-2 font-bold ${p.type === 'BUY' ? 'text-green-400' : 'text-red-400'}">${p.type}</td>
-              <td class="p-2">${Number(p.lots).toFixed(2)}</td>
-              <td class="p-2 font-mono">${p.close_price}</td>
-              <td class="p-2 font-bold ${Number(p.profit) >= 0 ? 'text-green-400' : 'text-red-400'}">$${Number(p.profit).toFixed(2)}</td>
-            </tr>
-          `).join('');
+          closedTbody.innerHTML = filteredPos.map(p => {
+            const dateObj = parseSafeDate(p.created_at);
+            const timeStr = dateObj.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
+            return `
+              <tr class="hover:bg-gray-750">
+                <td class="p-2 text-gray-400 font-mono">${timeStr}</td>
+                <td class="p-2 font-mono">#${p.account_number}</td>
+                <td class="p-2 font-mono text-gray-400">${p.ticket}</td>
+                <td class="p-2 font-bold">${p.symbol}</td>
+                <td class="p-2 font-bold ${p.type === 'BUY' ? 'text-green-400' : 'text-red-400'}">${p.type}</td>
+                <td class="p-2">${Number(p.lots).toFixed(2)}</td>
+                <td class="p-2 font-mono">${p.close_price}</td>
+                <td class="p-2 font-bold ${Number(p.profit) >= 0 ? 'text-green-400' : 'text-red-400'}">$${Number(p.profit).toFixed(2)}</td>
+              </tr>
+            `;
+          }).join('');
 
           let grossProfit = 0;
           let grossLoss = 0;
@@ -378,7 +378,6 @@
             if (prof < 0) grossLoss += Math.abs(prof);
           });
 
-          // Hitung Balance Awal Periode
           let startBalance = totalBalance - totalPeriodProfit;
           document.getElementById('val-start-balance').innerText = `$${startBalance.toFixed(2)}`;
           
@@ -467,7 +466,6 @@
       }
     }
 
-    // Fungsi Mengunduh Laporan PDF
     function downloadReportPDF() {
       const element = document.getElementById('pdf-content');
       const periodName = document.getElementById('period-select').value;
