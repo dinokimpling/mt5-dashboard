@@ -190,18 +190,30 @@
     let currentUserId = null;
     let equityChartInstance = null;
 
-    // Fungsi parsing tanggal yang kompatibel 100% dengan Safari Mac
-    function parseSafeDate(dateStr) {
-      if (!dateStr) return new Date(0);
-      let str = String(dateStr).trim();
-      if (str.includes(' ') && !str.includes('T')) {
-        str = str.replace(' ', 'T');
+    // Parser tanggal serbaguna (Bisa membaca close_time format MQL5 / string / timestamp)
+    function parseSafeDate(dateVal) {
+      if (!dateVal || dateVal === "null" || dateVal === "undefined") {
+        return new Date();
       }
-      let d = new Date(str);
-      if (isNaN(d.getTime())) {
-        d = new Date(str.replace(/-/g, '/').replace(/\./g, '/'));
+
+      // 1. Jika berupa Unix Timestamp
+      let num = Number(dateVal);
+      if (!isNaN(num) && num > 0) {
+        return num < 100000000000 ? new Date(num * 1000) : new Date(num);
       }
-      return isNaN(d.getTime()) ? new Date() : d;
+
+      let str = String(dateVal).trim();
+
+      // 2. Format khas MQL5 "2026.09.23 14:15:00" -> ubah titik ke slash
+      let cleanStr = str.replace(/\./g, '/');
+      let d = new Date(cleanStr);
+      if (!isNaN(d.getTime())) return d;
+
+      // 3. Fallback ISO format
+      d = new Date(str.replace(' ', 'T'));
+      if (!isNaN(d.getTime())) return d;
+
+      return new Date();
     }
 
     async function initAuth() {
@@ -274,7 +286,7 @@
       document.getElementById('pdf-period-label').innerText = periodText;
       document.getElementById('pdf-date-stamp').innerText = new Date().toLocaleString('id-ID');
 
-      // 1. Fetch Account Snapshots
+      // 1. Fetch Snapshots
       let querySnap = supabaseClient.from('account_snapshots').select('*').eq('user_id', currentUserId);
       if (selectedAcc !== 'ALL') querySnap = querySnap.eq('account_number', selectedAcc);
       const { data: snapshots } = await querySnap;
@@ -319,7 +331,7 @@
         openTbody.innerHTML = `<tr><td colspan="7" class="p-3 text-center text-gray-500">Tidak ada posisi terbuka</td></tr>`;
       }
 
-      // 3. Fetch & Filter Closed Positions Berdasarkan Periode
+      // 3. Fetch & Filter Closed Positions (Membaca close_time secara eksplisit)
       let queryClosed = supabaseClient.from('closed_positions').select('*').eq('user_id', currentUserId);
       if (selectedAcc !== 'ALL') queryClosed = queryClosed.eq('account_number', selectedAcc);
       const { data: closedPos } = await queryClosed;
@@ -328,10 +340,16 @@
       if (closedPos && closedPos.length > 0) {
 
         const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
         let filteredPos = closedPos.filter(item => {
-          const itemDate = parseSafeDate(item.created_at);
+          if (period === 'ALL') return true;
+
+          // Menggunakan kolom close_time
+          const itemDate = parseSafeDate(item.close_time || item.open_time || item.created_at);
+
           if (period === 'TODAY') {
-            return itemDate.toDateString() === now.toDateString();
+            return itemDate >= startOfToday;
           } else if (period === 'WEEK') {
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(now.getDate() - 7);
@@ -341,14 +359,14 @@
             thirtyDaysAgo.setDate(now.getDate() - 30);
             return itemDate >= thirtyDaysAgo;
           }
-          return true; // ALL
+          return true;
         });
 
         if (filteredPos.length > 0) {
-          filteredPos.sort((a,b) => parseSafeDate(a.created_at) - parseSafeDate(b.created_at));
+          filteredPos.sort((a,b) => parseSafeDate(a.close_time || a.open_time) - parseSafeDate(b.close_time || b.open_time));
 
           closedTbody.innerHTML = filteredPos.map(p => {
-            const dateObj = parseSafeDate(p.created_at);
+            const dateObj = parseSafeDate(p.close_time || p.open_time);
             const timeStr = dateObj.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
             return `
               <tr class="hover:bg-gray-750">
