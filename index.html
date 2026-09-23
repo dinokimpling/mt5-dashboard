@@ -485,20 +485,21 @@
     }
 
     function downloadReportPDF() {
-      const element = document.getElementById('pdf-content');
-      const periodName = document.getElementById('period-select').value;
-      
-      const opt = {
-        margin:       0.3,
-        filename:     `Laporan_MT5_${periodName}_${new Date().toISOString().slice(0,10)}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, backgroundColor: '#111827' },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
-      };
+  const element = document.getElementById('pdf-content');
+  const periodName = document.getElementById('period-select').value;
+  
+  const opt = {
+    margin:       [0.3, 0.3, 0.3, 0.3], // top, left, bottom, right
+    filename:     `Laporan_MT5_${periodName}_${new Date().toISOString().slice(0,10)}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2, backgroundColor: '#111827', useCORS: true },
+    jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' },
+    // Opsi khusus agar pemotongan halaman rapi (tidak memotong baris tabel)
+    pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+  };
 
-      html2pdf().set(opt).from(element).save();
-    }
-
+  html2pdf().set(opt).from(element).save();
+}
     initAuth();
   </script>
 </body>
