@@ -9,6 +9,14 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  
+  <style>
+    /* Prevent cutoffs during PDF export */
+    tr, .bg-gray-800, #pdf-content > div {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+  </style>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
 
@@ -27,7 +35,7 @@
 
       <div>
         <select id="account-select" onchange="loadDashboardData()" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="ALL">Semua Akun (Total Gabungan)</option>
+          <option value="ALL">Semua Akun & Broker (Total Gabungan)</option>
         </select>
       </div>
 
@@ -134,7 +142,7 @@
             <table class="w-full text-left text-xs text-gray-300">
               <thead class="bg-gray-700/50 uppercase text-gray-400">
                 <tr>
-                  <th class="p-2">Akun</th>
+                  <th class="p-2">Akun / Broker</th>
                   <th class="p-2">Ticket</th>
                   <th class="p-2">Symbol</th>
                   <th class="p-2">Type</th>
@@ -160,7 +168,7 @@
               <thead class="bg-gray-700/50 uppercase text-gray-400">
                 <tr>
                   <th class="p-2">Waktu Tutup</th>
-                  <th class="p-2">Akun</th>
+                  <th class="p-2">Akun / Broker</th>
                   <th class="p-2">Ticket</th>
                   <th class="p-2">Symbol</th>
                   <th class="p-2">Type</th>
@@ -190,29 +198,18 @@
     let currentUserId = null;
     let equityChartInstance = null;
 
-    // Parser tanggal serbaguna (Bisa membaca close_time format MQL5 / string / timestamp)
     function parseSafeDate(dateVal) {
-      if (!dateVal || dateVal === "null" || dateVal === "undefined") {
-        return new Date();
-      }
-
-      // 1. Jika berupa Unix Timestamp
+      if (!dateVal || dateVal === "null" || dateVal === "undefined") return new Date();
       let num = Number(dateVal);
       if (!isNaN(num) && num > 0) {
         return num < 100000000000 ? new Date(num * 1000) : new Date(num);
       }
-
       let str = String(dateVal).trim();
-
-      // 2. Format khas MQL5 "2026.09.23 14:15:00" -> ubah titik ke slash
       let cleanStr = str.replace(/\./g, '/');
       let d = new Date(cleanStr);
       if (!isNaN(d.getTime())) return d;
-
-      // 3. Fallback ISO format
       d = new Date(str.replace(' ', 'T'));
       if (!isNaN(d.getTime())) return d;
-
       return new Date();
     }
 
@@ -262,16 +259,28 @@
     }
 
     async function loadAccountDropdown() {
-      const { data } = await supabaseClient.from('account_snapshots').select('account_number').eq('user_id', currentUserId);
+      const { data } = await supabaseClient.from('account_snapshots').select('account_number, broker').eq('user_id', currentUserId);
       const select = document.getElementById('account-select');
       const currentVal = select.value;
       
-      select.innerHTML = '<option value="ALL">Semua Akun (Total Gabungan)</option>';
+      select.innerHTML = '<option value="ALL">Semua Akun & Broker (Total Gabungan)</option>';
       
       if (data && data.length > 0) {
-        const uniqueAccounts = [...new Set(data.map(item => item.account_number))];
-        uniqueAccounts.forEach(acc => {
-          select.innerHTML += `<option value="${acc}">Akun #${acc}</option>`;
+        const uniqueAccounts = [];
+        const map = new Map();
+        
+        data.forEach(item => {
+          if(!map.has(item.account_number)){
+            map.set(item.account_number, true);
+            uniqueAccounts.push({
+              acc: item.account_number,
+              broker: item.broker || 'Broker Standard'
+            });
+          }
+        });
+
+        uniqueAccounts.forEach(item => {
+          select.innerHTML += `<option value="${item.acc}">Akun #${item.acc} (${item.broker})</option>`;
         });
       }
       select.value = currentVal || 'ALL';
@@ -318,7 +327,10 @@
       if (openPos && openPos.length > 0) {
         openTbody.innerHTML = openPos.map(p => `
           <tr class="hover:bg-gray-750">
-            <td class="p-2 font-mono">#${p.account_number}</td>
+            <td class="p-2 font-mono">
+              <span class="font-bold text-white">#${p.account_number}</span>
+              <br><span class="text-[10px] text-gray-400">${p.broker || '-'}</span>
+            </td>
             <td class="p-2 font-mono text-gray-400">${p.ticket}</td>
             <td class="p-2 font-bold">${p.symbol}</td>
             <td class="p-2 font-bold ${p.type === 'BUY' ? 'text-green-400' : 'text-red-400'}">${p.type}</td>
@@ -331,7 +343,7 @@
         openTbody.innerHTML = `<tr><td colspan="7" class="p-3 text-center text-gray-500">Tidak ada posisi terbuka</td></tr>`;
       }
 
-      // 3. Fetch & Filter Closed Positions (Membaca close_time secara eksplisit)
+      // 3. Fetch & Filter Closed Positions
       let queryClosed = supabaseClient.from('closed_positions').select('*').eq('user_id', currentUserId);
       if (selectedAcc !== 'ALL') queryClosed = queryClosed.eq('account_number', selectedAcc);
       const { data: closedPos } = await queryClosed;
@@ -345,7 +357,6 @@
         let filteredPos = closedPos.filter(item => {
           if (period === 'ALL') return true;
 
-          // Menggunakan kolom close_time
           const itemDate = parseSafeDate(item.close_time || item.open_time || item.created_at);
 
           if (period === 'TODAY') {
@@ -371,7 +382,10 @@
             return `
               <tr class="hover:bg-gray-750">
                 <td class="p-2 text-gray-400 font-mono">${timeStr}</td>
-                <td class="p-2 font-mono">#${p.account_number}</td>
+                <td class="p-2 font-mono">
+                  <span class="font-bold text-white">#${p.account_number}</span>
+                  <br><span class="text-[10px] text-gray-400">${p.broker || '-'}</span>
+                </td>
                 <td class="p-2 font-mono text-gray-400">${p.ticket}</td>
                 <td class="p-2 font-bold">${p.symbol}</td>
                 <td class="p-2 font-bold ${p.type === 'BUY' ? 'text-green-400' : 'text-red-400'}">${p.type}</td>
@@ -485,21 +499,21 @@
     }
 
     function downloadReportPDF() {
-  const element = document.getElementById('pdf-content');
-  const periodName = document.getElementById('period-select').value;
-  
-  const opt = {
-    margin:       [0.3, 0.3, 0.3, 0.3], // top, left, bottom, right
-    filename:     `Laporan_MT5_${periodName}_${new Date().toISOString().slice(0,10)}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, backgroundColor: '#111827', useCORS: true },
-    jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' },
-    // Opsi khusus agar pemotongan halaman rapi (tidak memotong baris tabel)
-    pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
-  };
+      const element = document.getElementById('pdf-content');
+      const periodName = document.getElementById('period-select').value;
+      
+      const opt = {
+        margin:       [0.3, 0.3, 0.3, 0.3],
+        filename:     `Laporan_MT5_${periodName}_${new Date().toISOString().slice(0,10)}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, backgroundColor: '#111827', useCORS: true },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+      };
 
-  html2pdf().set(opt).from(element).save();
-}
+      html2pdf().set(opt).from(element).save();
+    }
+
     initAuth();
   </script>
 </body>
