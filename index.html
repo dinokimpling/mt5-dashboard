@@ -26,17 +26,22 @@
       <h1 class="text-xl font-bold tracking-wide text-white">MT5 Terminal Center</h1>
     </div>
 
-    <div id="auth-actions" class="hidden flex flex-wrap items-center gap-4">
+    <div id="auth-actions" class="hidden flex flex-wrap items-center gap-3">
       <div class="text-xs text-gray-400">
         Email: <span id="user-email" class="text-white font-medium"></span>
         <br>
         User ID: <span id="user-id-display" class="font-mono text-gray-300"></span>
       </div>
 
-      <div>
+      <div class="flex items-center gap-1.5">
         <select id="account-select" onchange="loadDashboardData()" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="ALL">Semua Akun & Broker (Total Gabungan)</option>
         </select>
+        
+        <!-- Tombol Hapus Akun Terpilih -->
+        <button onclick="handleDeleteAccount()" title="Hapus Akun Terpilih" class="bg-red-900/60 hover:bg-red-700 text-red-200 border border-red-700/50 p-1.5 rounded-lg transition text-xs font-semibold flex items-center gap-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+        </button>
       </div>
 
       <div>
@@ -286,6 +291,36 @@
       select.value = currentVal || 'ALL';
     }
 
+    // Fungsi Hapus Akun Terpilih dari Supabase
+    async function handleDeleteAccount() {
+      const select = document.getElementById('account-select');
+      const selectedAcc = select.value;
+
+      if (selectedAcc === 'ALL') {
+        alert("Pilih akun spesifik yang ingin dihapus terlebih dahulu dari menu dropdown!");
+        return;
+      }
+
+      const confirmDelete = confirm(`Apakah Anda yakin ingin menghapus Akun #${selectedAcc} dari dasbor?\n\nPASTIKAN EA di MT5 akun ini sudah dimatikan agar data tidak terisi kembali!`);
+      if (!confirmDelete) return;
+
+      try {
+        const p1 = supabaseClient.from('account_snapshots').delete().eq('user_id', currentUserId).eq('account_number', selectedAcc);
+        const p2 = supabaseClient.from('open_positions').delete().eq('user_id', currentUserId).eq('account_number', selectedAcc);
+        const p3 = supabaseClient.from('closed_positions').delete().eq('user_id', currentUserId).eq('account_number', selectedAcc);
+
+        await Promise.all([p1, p2, p3]);
+
+        alert(`Akun #${selectedAcc} berhasil dihapus dari dasbor.`);
+        
+        select.value = 'ALL';
+        await loadAccountDropdown();
+        await loadDashboardData();
+      } catch (err) {
+        alert("Gagal menghapus akun: " + err.message);
+      }
+    }
+
     async function loadDashboardData() {
       if (!currentUserId) return;
       const selectedAcc = document.getElementById('account-select').value;
@@ -316,6 +351,10 @@
         const floatEl = document.getElementById('val-floating');
         floatEl.innerText = `$${f.toFixed(2)}`;
         floatEl.className = `text-base md:text-lg font-bold ${f >= 0 ? 'text-green-400' : 'text-red-400'}`;
+      } else {
+        document.getElementById('val-balance').innerText = "$0.00";
+        document.getElementById('val-equity').innerText = "$0.00";
+        document.getElementById('val-floating').innerText = "$0.00";
       }
 
       // 2. Fetch Open Positions
