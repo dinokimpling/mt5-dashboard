@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MT5 Multi-User Dashboard</title>
+  <title>MT5 Multi-User Dashboard Pro</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -11,7 +11,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   
   <style>
-    /* Prevent cutoffs during PDF export */
     tr, .bg-gray-800, #pdf-content > div {
       break-inside: avoid !important;
       page-break-inside: avoid !important;
@@ -20,10 +19,10 @@
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
 
-  <header class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+  <header class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex flex-col xl:flex-row justify-between items-center gap-4">
     <div class="flex items-center gap-3">
       <div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-      <h1 class="text-xl font-bold tracking-wide text-white">MT5 Terminal Center</h1>
+      <h1 class="text-xl font-bold tracking-wide text-white">MT5 Terminal Center Pro</h1>
     </div>
 
     <div id="auth-actions" class="hidden flex flex-wrap items-center gap-3">
@@ -37,11 +36,15 @@
         <select id="account-select" onchange="loadDashboardData()" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="ALL">Semua Akun & Broker (Total Gabungan)</option>
         </select>
-        
-        <!-- Tombol Hapus Akun Terpilih -->
-        <button onclick="handleDeleteAccount()" title="Hapus Akun Terpilih" class="bg-red-900/60 hover:bg-red-700 text-red-200 border border-red-700/50 p-1.5 rounded-lg transition text-xs font-semibold flex items-center gap-1">
+        <button onclick="handleDeleteAccount()" title="Hapus Akun Terpilih" class="bg-red-900/60 hover:bg-red-700 text-red-200 border border-red-700/50 p-2 rounded-lg transition text-xs font-semibold">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
         </button>
+      </div>
+
+      <div class="flex items-center gap-1 bg-gray-700/50 p-1 rounded-lg border border-gray-600">
+        <button onclick="sendTradeCommand('CLOSE_BUY')" class="bg-yellow-600 hover:bg-yellow-700 text-white text-[11px] px-2 py-1.5 rounded font-semibold transition" title="Tutup Semua Posisi BUY">Close Buy</button>
+        <button onclick="sendTradeCommand('CLOSE_SELL')" class="bg-orange-600 hover:bg-orange-700 text-white text-[11px] px-2 py-1.5 rounded font-semibold transition" title="Tutup Semua Posisi SELL">Close Sell</button>
+        <button onclick="sendTradeCommand('CLOSE_ALL')" class="bg-red-600 hover:bg-red-700 text-white text-[11px] px-2 py-1.5 rounded font-semibold transition" title="Tutup Semua Posisi (BUY & SELL)">Close All</button>
       </div>
 
       <div>
@@ -53,35 +56,32 @@
         </select>
       </div>
 
-      <button onclick="downloadReportPDF()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg font-semibold transition flex items-center gap-1.5">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-        Download PDF
-      </button>
+      <div class="flex items-center gap-1.5">
+        <button onclick="exportToCSV()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-2 rounded-lg font-semibold transition flex items-center gap-1">📥 CSV</button>
+        <button onclick="downloadReportPDF()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg font-semibold transition flex items-center gap-1">📄 PDF</button>
+      </div>
 
-      <button onclick="handleLogout()" class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-2 rounded-lg font-semibold transition">
-        Logout
-      </button>
+      <button onclick="handleLogout()" class="bg-gray-700 hover:bg-gray-600 text-red-400 text-xs px-3 py-2 rounded-lg font-semibold transition">Logout</button>
     </div>
   </header>
 
-  <main class="p-4 md:p-8 max-w-7xl mx-auto">
+  <main class="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
     
     <div id="view-login" class="max-w-md mx-auto my-12 bg-gray-800 border border-gray-700 rounded-xl p-8 shadow-2xl">
       <h2 class="text-2xl font-bold text-center mb-2">Masuk ke Dasbor MT5</h2>
-      <p class="text-gray-400 text-xs text-center mb-6">Silakan login atau mendaftar akun baru untuk memantau trading MT5 kamu.</p>
-      
+      <p class="text-gray-400 text-xs text-center mb-6">Silakan login untuk memantau & mengontrol trading kamu.</p>
       <div class="space-y-4">
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Email</label>
+          <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Email</label>
           <input type="email" id="email" placeholder="nama@email.com" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500">
         </div>
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Password</label>
+          <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Password</label>
           <input type="password" id="password" placeholder="••••••••" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500">
         </div>
         <div class="pt-2 flex gap-3">
           <button onclick="handleLogin()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition">Login</button>
-          <button onclick="handleSignUp()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition">Daftar Baru</button>
+          <button onclick="handleSignUp()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition">Daftar</button>
         </div>
       </div>
     </div>
@@ -92,57 +92,83 @@
 
         <div class="border-b border-gray-700 pb-3 flex justify-between items-center">
           <div>
-            <h2 class="text-lg font-bold text-white">Laporan Performa Trading MT5</h2>
+            <h2 class="text-lg font-bold text-white">Laporan & Performa Trading MT5</h2>
             <p class="text-xs text-gray-400">Periode: <span id="pdf-period-label" class="text-amber-400 font-semibold">Bulan Ini</span></p>
           </div>
-          <div class="text-right text-xs text-gray-400">
-            Dicetak: <span id="pdf-date-stamp"></span>
-          </div>
+          <div class="text-right text-xs text-gray-400">Dicetak: <span id="pdf-date-stamp"></span></div>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
           <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
-            <div class="text-[10px] text-gray-400 uppercase font-semibold">Balance Awal Periode</div>
-            <div id="val-start-balance" class="text-base md:text-lg font-bold text-gray-200 mt-0.5">$0.00</div>
+            <div class="text-[10px] text-gray-400 uppercase font-semibold">Balance Awal</div>
+            <div id="val-start-balance" class="text-base font-bold text-gray-200 mt-0.5">\$0.00</div>
           </div>
           <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
             <div class="text-[10px] text-gray-400 uppercase font-semibold">Balance Sekarang</div>
-            <div id="val-balance" class="text-base md:text-lg font-bold text-white mt-0.5">$0.00</div>
+            <div id="val-balance" class="text-base font-bold text-white mt-0.5">\$0.00</div>
           </div>
           <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
             <div class="text-[10px] text-gray-400 uppercase font-semibold">Total Equity</div>
-            <div id="val-equity" class="text-base md:text-lg font-bold text-blue-400 mt-0.5">$0.00</div>
+            <div id="val-equity" class="text-base font-bold text-blue-400 mt-0.5">\$0.00</div>
           </div>
           <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
-            <div class="text-[10px] text-gray-400 uppercase font-semibold">Total Profit Periode</div>
-            <div id="val-period-profit" class="text-base md:text-lg font-bold text-emerald-400 mt-0.5">$0.00</div>
+            <div class="text-[10px] text-gray-400 uppercase font-semibold">Profit Periode</div>
+            <div id="val-period-profit" class="text-base font-bold text-emerald-400 mt-0.5">\$0.00</div>
           </div>
           <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
             <div class="text-[10px] text-gray-400 uppercase font-semibold">Floating P/L</div>
-            <div id="val-floating" class="text-base md:text-lg font-bold text-gray-300 mt-0.5">$0.00</div>
+            <div id="val-floating" class="text-base font-bold text-gray-300 mt-0.5">\$0.00</div>
           </div>
           <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
             <div class="text-[10px] text-gray-400 uppercase font-semibold">Profit Factor</div>
-            <div id="val-profit-factor" class="text-base md:text-lg font-bold text-amber-400 mt-0.5">0.00</div>
+            <div id="val-profit-factor" class="text-base font-bold text-amber-400 mt-0.5">0.00</div>
           </div>
           <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow">
             <div class="text-[10px] text-gray-400 uppercase font-semibold">Max Drawdown</div>
-            <div id="val-drawdown" class="text-base md:text-lg font-bold text-red-400 mt-0.5">0.00%</div>
+            <div id="val-drawdown" class="text-base font-bold text-red-400 mt-0.5">0.00%</div>
           </div>
         </div>
 
         <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
-          <h3 class="text-sm font-semibold mb-3 text-gray-200">Grafik Pertumbuhan Equity (Periode Terpilih)</h3>
-          <div class="h-60 w-full">
-            <canvas id="equityChart"></canvas>
-          </div>
-        </div>
-
-        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
-          <h3 class="text-sm font-semibold mb-3 text-emerald-400 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            Posisi Terbuka (Real-Time)
+          <h3 class="text-sm font-semibold mb-3 text-indigo-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+            Statistik Performa Trading Lanjutan
           </h3>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+            <div class="bg-gray-700/40 p-2.5 rounded-lg border border-gray-700">
+              <span class="text-gray-400 block">Win Rate</span>
+              <span id="stat-winrate" class="text-white font-bold text-sm">0.0%</span>
+            </div>
+            <div class="bg-gray-700/40 p-2.5 rounded-lg border border-gray-700">
+              <span class="text-gray-400 block">Total Trades</span>
+              <span id="stat-total-trades" class="text-white font-bold text-sm">0</span>
+            </div>
+            <div class="bg-gray-700/40 p-2.5 rounded-lg border border-gray-700">
+              <span class="text-gray-400 block">Avg Profit</span>
+              <span id="stat-avg-profit" class="text-emerald-400 font-bold text-sm">\$0.00</span>
+            </div>
+            <div class="bg-gray-700/40 p-2.5 rounded-lg border border-gray-700">
+              <span class="text-gray-400 block">Avg Loss</span>
+              <span id="stat-avg-loss" class="text-red-400 font-bold text-sm">\$0.00</span>
+            </div>
+            <div class="bg-gray-700/40 p-2.5 rounded-lg border border-gray-700">
+              <span class="text-gray-400 block">Best Trade</span>
+              <span id="stat-best-trade" class="text-emerald-400 font-bold text-sm">\$0.00</span>
+            </div>
+            <div class="bg-gray-700/40 p-2.5 rounded-lg border border-gray-700">
+              <span class="text-gray-400 block">Worst Trade</span>
+              <span id="stat-worst-trade" class="text-red-400 font-bold text-sm">\$0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
+          <h3 class="text-sm font-semibold mb-3 text-gray-200">Grafik Pertumbuhan Equity</h3>
+          <div class="h-60 w-full"><canvas id="equityChart"></canvas></div>
+        </div>
+
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
+          <h3 class="text-sm font-semibold mb-3 text-emerald-400">Posisi Terbuka (Real-Time)</h3>
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs text-gray-300">
               <thead class="bg-gray-700/50 uppercase text-gray-400">
@@ -164,10 +190,7 @@
         </div>
 
         <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow">
-          <h3 class="text-sm font-semibold mb-3 text-blue-400 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-blue-400"></span>
-            Riwayat Transaksi Ditutup (Sesuai Periode)
-          </h3>
+          <h3 class="text-sm font-semibold mb-3 text-blue-400">Riwayat Transaksi Ditutup</h3>
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs text-gray-300">
               <thead class="bg-gray-700/50 uppercase text-gray-400">
@@ -197,21 +220,18 @@
   <script>
     const SUPABASE_URL = "https://naadmqzcirevppkzydfz.supabase.co";
     const SUPABASE_KEY = "sb_publishable_wxTw0nlh-ZBuNSbKhfk1rw_S_SdXA92";
-    
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentUserId = null;
     let equityChartInstance = null;
+    let cachedClosedPositions = [];
 
     function parseSafeDate(dateVal) {
       if (!dateVal || dateVal === "null" || dateVal === "undefined") return new Date();
       let num = Number(dateVal);
-      if (!isNaN(num) && num > 0) {
-        return num < 100000000000 ? new Date(num * 1000) : new Date(num);
-      }
-      let str = String(dateVal).trim();
-      let cleanStr = str.replace(/\./g, '/');
-      let d = new Date(cleanStr);
+      if (!isNaN(num) && num > 0) return num < 100000000000 ? new Date(num * 1000) : new Date(num);
+      let str = String(dateVal).trim().replace(/\./g, '/');
+      let d = new Date(str);
       if (!isNaN(d.getTime())) return d;
       d = new Date(str.replace(' ', 'T'));
       if (!isNaN(d.getTime())) return d;
@@ -227,7 +247,6 @@
         document.getElementById('view-login').classList.add('hidden');
         document.getElementById('view-dashboard').classList.remove('hidden');
         document.getElementById('auth-actions').classList.remove('hidden');
-        
         await loadAccountDropdown();
         await loadDashboardData();
         setInterval(loadDashboardData, 3000);
@@ -242,18 +261,16 @@
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
       if (!email || !password) return alert("Email & Password wajib diisi!");
-
-      const { data, error } = await supabaseClient.auth.signUp({ email, password });
-      if (error) alert("Gagal Daftar: " + error.message);
-      else alert("Pendaftaran berhasil! Silakan klik tombol Login.");
+      const { error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) alert("Gagal: " + error.message);
+      else alert("Pendaftaran berhasil! Silakan Login.");
     }
 
     async function handleLogin() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
       if (!email || !password) return alert("Email & Password wajib diisi!");
-
-      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if (error) alert("Gagal Login: " + error.message);
       else initAuth();
     }
@@ -267,70 +284,79 @@
       const { data } = await supabaseClient.from('account_snapshots').select('account_number, broker').eq('user_id', currentUserId);
       const select = document.getElementById('account-select');
       const currentVal = select.value;
-      
       select.innerHTML = '<option value="ALL">Semua Akun & Broker (Total Gabungan)</option>';
-      
       if (data && data.length > 0) {
-        const uniqueAccounts = [];
         const map = new Map();
-        
         data.forEach(item => {
           if(!map.has(item.account_number)){
             map.set(item.account_number, true);
-            uniqueAccounts.push({
-              acc: item.account_number,
-              broker: item.broker || 'Broker Standard'
-            });
+            select.innerHTML += `<option value="${item.account_number}">Akun #${item.account_number} (${item.broker || 'Standard'})</option>`;
           }
-        });
-
-        uniqueAccounts.forEach(item => {
-          select.innerHTML += `<option value="${item.acc}">Akun #${item.acc} (${item.broker})</option>`;
         });
       }
       select.value = currentVal || 'ALL';
     }
 
-    // Fungsi Hapus Akun Terpilih dari Supabase
-    async function handleDeleteAccount() {
-      const select = document.getElementById('account-select');
-      const selectedAcc = select.value;
-
+    async function sendTradeCommand(actionType) {
+      const selectedAcc = document.getElementById('account-select').value;
       if (selectedAcc === 'ALL') {
-        alert("Pilih akun spesifik yang ingin dihapus terlebih dahulu dari menu dropdown!");
+        alert("Pilih akun spesifik terlebih dahulu di menu dropdown untuk mengirim perintah kontrol!");
         return;
       }
+      if (!confirm(`Kirim perintah ${actionType} untuk Akun #${selectedAcc}?`)) return;
 
-      const confirmDelete = confirm(`Apakah Anda yakin ingin menghapus Akun #${selectedAcc} dari dasbor?\n\nPASTIKAN EA di MT5 akun ini sudah dimatikan agar data tidak terisi kembali!`);
-      if (!confirmDelete) return;
+      const { error } = await supabaseClient.from('commands').insert([{
+        user_id: currentUserId,
+        account_number: selectedAcc,
+        action: actionType,
+        status: 'pending'
+      }]);
 
-      try {
-        const p1 = supabaseClient.from('account_snapshots').delete().eq('user_id', currentUserId).eq('account_number', selectedAcc);
-        const p2 = supabaseClient.from('open_positions').delete().eq('user_id', currentUserId).eq('account_number', selectedAcc);
-        const p3 = supabaseClient.from('closed_positions').delete().eq('user_id', currentUserId).eq('account_number', selectedAcc);
+      if (error) alert("Gagal mengirim perintah: " + error.message);
+      else alert(`Perintah ${actionType} berhasil dikirim. EA akan mengeksekusinya dalam beberapa detik.`);
+    }
 
-        await Promise.all([p1, p2, p3]);
+    async function handleDeleteAccount() {
+      const selectedAcc = document.getElementById('account-select').value;
+      if (selectedAcc === 'ALL') return alert("Pilih akun spesifik yang ingin dihapus!");
+      if (!confirm(`Hapus Akun #${selectedAcc} dari dasbor?`)) return;
 
-        alert(`Akun #${selectedAcc} berhasil dihapus dari dasbor.`);
-        
-        select.value = 'ALL';
-        await loadAccountDropdown();
-        await loadDashboardData();
-      } catch (err) {
-        alert("Gagal menghapus akun: " + err.message);
+      await Promise.all([
+        supabaseClient.from('account_snapshots').delete().eq('user_id', currentUserId).eq('account_number', selectedAcc),
+        supabaseClient.from('open_positions').delete().eq('user_id', currentUserId).eq('account_number', selectedAcc),
+        supabaseClient.from('closed_positions').delete().eq('user_id', currentUserId).eq('account_number', selectedAcc)
+      ]);
+      alert("Akun berhasil dihapus.");
+      document.getElementById('account-select').value = 'ALL';
+      await loadAccountDropdown();
+      await loadDashboardData();
+    }
+
+    function exportToCSV() {
+      if (!cachedClosedPositions || cachedClosedPositions.length === 0) {
+        return alert("Tidak ada data riwayat untuk diekspor.");
       }
+      let csvContent = "data:text/csv;charset=utf-8,Waktu,Akun,Broker,Ticket,Symbol,Type,Lot,ClosePrice,Profit\r\n";
+      cachedClosedPositions.forEach(p => {
+        const row = [p.close_time || p.open_time, p.account_number, p.broker || '-', p.ticket, p.symbol, p.type, p.lots, p.close_price, p.profit];
+        csvContent += row.join(",") + "\r\n";
+      });
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `MT5_Report_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
 
     async function loadDashboardData() {
       if (!currentUserId) return;
       const selectedAcc = document.getElementById('account-select').value;
       const period = document.getElementById('period-select').value;
-
-      const periodText = document.getElementById('period-select').options[document.getElementById('period-select').selectedIndex].text;
-      document.getElementById('pdf-period-label').innerText = periodText;
+      document.getElementById('pdf-period-label').innerText = document.getElementById('period-select').options[document.getElementById('period-select').selectedIndex].text;
       document.getElementById('pdf-date-stamp').innerText = new Date().toLocaleString('id-ID');
 
-      // 1. Fetch Snapshots
       let querySnap = supabaseClient.from('account_snapshots').select('*').eq('user_id', currentUserId);
       if (selectedAcc !== 'ALL') querySnap = querySnap.eq('account_number', selectedAcc);
       const { data: snapshots } = await querySnap;
@@ -338,38 +364,32 @@
       let totalBalance = 0;
       if (snapshots && snapshots.length > 0) {
         let b = 0, e = 0, f = 0;
-        snapshots.forEach(s => {
-          b += Number(s.balance || 0);
-          e += Number(s.equity || 0);
-          f += Number(s.floating_pl || 0);
-        });
-
+        snapshots.forEach(s => { b += Number(s.balance || 0); e += Number(s.equity || 0); f += Number(s.floating_pl || 0); });
         totalBalance = b;
         document.getElementById('val-balance').innerText = `$${b.toFixed(2)}`;
         document.getElementById('val-equity').innerText = `$${e.toFixed(2)}`;
-        
         const floatEl = document.getElementById('val-floating');
         floatEl.innerText = `$${f.toFixed(2)}`;
-        floatEl.className = `text-base md:text-lg font-bold ${f >= 0 ? 'text-green-400' : 'text-red-400'}`;
-      } else {
-        document.getElementById('val-balance').innerText = "$0.00";
-        document.getElementById('val-equity').innerText = "$0.00";
-        document.getElementById('val-floating').innerText = "$0.00";
+        floatEl.className = `text-base font-bold ${f >= 0 ? 'text-green-400' : 'text-red-400'}`;
       }
 
-      // 2. Fetch Open Positions
+      // --- FETCH & SORT OPEN POSITIONS PER AKUN ---
       let queryOpen = supabaseClient.from('open_positions').select('*').eq('user_id', currentUserId);
       if (selectedAcc !== 'ALL') queryOpen = queryOpen.eq('account_number', selectedAcc);
       const { data: openPos } = await queryOpen;
-
       const openTbody = document.getElementById('table-open-positions');
+
       if (openPos && openPos.length > 0) {
+        // Mengurutkan berdasarkan nomor akun terlebih dahulu, lalu nomor tiket
+        openPos.sort((a, b) => {
+          let accCompare = String(a.account_number).localeCompare(String(b.account_number));
+          if (accCompare !== 0) return accCompare;
+          return Number(a.ticket || 0) - Number(b.ticket || 0);
+        });
+
         openTbody.innerHTML = openPos.map(p => `
           <tr class="hover:bg-gray-750">
-            <td class="p-2 font-mono">
-              <span class="font-bold text-white">#${p.account_number}</span>
-              <br><span class="text-[10px] text-gray-400">${p.broker || '-'}</span>
-            </td>
+            <td class="p-2 font-mono"><span class="font-bold text-white">#${p.account_number}</span><br><span class="text-[10px] text-gray-400">${p.broker || '-'}</span></td>
             <td class="p-2 font-mono text-gray-400">${p.ticket}</td>
             <td class="p-2 font-bold">${p.symbol}</td>
             <td class="p-2 font-bold ${p.type === 'BUY' ? 'text-green-400' : 'text-red-400'}">${p.type}</td>
@@ -382,49 +402,41 @@
         openTbody.innerHTML = `<tr><td colspan="7" class="p-3 text-center text-gray-500">Tidak ada posisi terbuka</td></tr>`;
       }
 
-      // 3. Fetch & Filter Closed Positions
+      // --- FETCH & FILTER CLOSED POSITIONS ---
       let queryClosed = supabaseClient.from('closed_positions').select('*').eq('user_id', currentUserId);
       if (selectedAcc !== 'ALL') queryClosed = queryClosed.eq('account_number', selectedAcc);
       const { data: closedPos } = await queryClosed;
-
       const closedTbody = document.getElementById('table-closed-positions');
-      if (closedPos && closedPos.length > 0) {
 
+      if (closedPos && closedPos.length > 0) {
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         
         let filteredPos = closedPos.filter(item => {
           if (period === 'ALL') return true;
-
           const itemDate = parseSafeDate(item.close_time || item.open_time || item.created_at);
-
-          if (period === 'TODAY') {
-            return itemDate >= startOfToday;
-          } else if (period === 'WEEK') {
-            const sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(now.getDate() - 7);
-            return itemDate >= sevenDaysAgo;
-          } else if (period === 'MONTH') {
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(now.getDate() - 30);
-            return itemDate >= thirtyDaysAgo;
-          }
+          if (period === 'TODAY') return itemDate >= startOfToday;
+          if (period === 'WEEK') { let d = new Date(); d.setDate(now.getDate() - 7); return itemDate >= d; }
+          if (period === 'MONTH') { let d = new Date(); d.setDate(now.getDate() - 30); return itemDate >= d; }
           return true;
         });
 
+        cachedClosedPositions = filteredPos;
+
         if (filteredPos.length > 0) {
-          filteredPos.sort((a,b) => parseSafeDate(a.close_time || a.open_time) - parseSafeDate(b.close_time || b.open_time));
+          // Urutkan riwayat juga per akun lalu waktu
+          filteredPos.sort((a, b) => {
+            let accCompare = String(a.account_number).localeCompare(String(b.account_number));
+            if (accCompare !== 0) return accCompare;
+            return parseSafeDate(a.close_time || a.open_time) - parseSafeDate(b.close_time || b.open_time);
+          });
 
           closedTbody.innerHTML = filteredPos.map(p => {
-            const dateObj = parseSafeDate(p.close_time || p.open_time);
-            const timeStr = dateObj.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
+            const timeStr = parseSafeDate(p.close_time || p.open_time).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
             return `
               <tr class="hover:bg-gray-750">
                 <td class="p-2 text-gray-400 font-mono">${timeStr}</td>
-                <td class="p-2 font-mono">
-                  <span class="font-bold text-white">#${p.account_number}</span>
-                  <br><span class="text-[10px] text-gray-400">${p.broker || '-'}</span>
-                </td>
+                <td class="p-2 font-mono"><span class="font-bold text-white">#${p.account_number}</span><br><span class="text-[10px] text-gray-400">${p.broker || '-'}</span></td>
                 <td class="p-2 font-mono text-gray-400">${p.ticket}</td>
                 <td class="p-2 font-bold">${p.symbol}</td>
                 <td class="p-2 font-bold ${p.type === 'BUY' ? 'text-green-400' : 'text-red-400'}">${p.type}</td>
@@ -435,55 +447,59 @@
             `;
           }).join('');
 
-          let grossProfit = 0;
-          let grossLoss = 0;
-          let totalPeriodProfit = 0;
-
-          let chartLabels = ['Start'];
-          let chartData = [];
+          let grossProfit = 0, grossLoss = 0, totalPeriodProfit = 0;
+          let winCount = 0, lossCount = 0;
+          let bestTrade = -999999, worstTrade = 999999;
+          let sumProfitOnly = 0, sumLossOnly = 0;
 
           filteredPos.forEach(p => {
             let prof = Number(p.profit || 0);
             totalPeriodProfit += prof;
-            if (prof > 0) grossProfit += prof;
-            if (prof < 0) grossLoss += Math.abs(prof);
+            if (prof > 0) { grossProfit += prof; winCount++; sumProfitOnly += prof; if(prof > bestTrade) bestTrade = prof; }
+            if (prof < 0) { grossLoss += Math.abs(prof); lossCount++; sumLossOnly += Math.abs(prof); if(prof < worstTrade) worstTrade = prof; }
           });
+
+          if(bestTrade === -999999) bestTrade = 0;
+          if(worstTrade === 999999) worstTrade = 0;
+
+          let totalTrades = filteredPos.length;
+          let winRate = totalTrades > 0 ? (winCount / totalTrades) * 100 : 0;
+          let avgProfit = winCount > 0 ? sumProfitOnly / winCount : 0;
+          let avgLoss = lossCount > 0 ? sumLossOnly / lossCount : 0;
+
+          document.getElementById('stat-winrate').innerText = `${winRate.toFixed(1)}%`;
+          document.getElementById('stat-total-trades').innerText = totalTrades;
+          document.getElementById('stat-avg-profit').innerText = `$${avgProfit.toFixed(2)}`;
+          document.getElementById('stat-avg-loss').innerText = `$${avgLoss.toFixed(2)}`;
+          document.getElementById('stat-best-trade').innerText = `$${bestTrade.toFixed(2)}`;
+          document.getElementById('stat-worst-trade').innerText = `$${worstTrade.toFixed(2)}`;
 
           let startBalance = totalBalance - totalPeriodProfit;
           document.getElementById('val-start-balance').innerText = `$${startBalance.toFixed(2)}`;
-          
-          const profEl = document.getElementById('val-period-profit');
-          profEl.innerText = `$${totalPeriodProfit.toFixed(2)}`;
-          profEl.className = `text-base md:text-lg font-bold ${totalPeriodProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+          document.getElementById('val-period-profit').innerText = `$${totalPeriodProfit.toFixed(2)}`;
+          document.getElementById('val-period-profit').className = `text-base font-bold ${totalPeriodProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
 
           let runningEquity = startBalance;
-          chartData.push(Number(runningEquity.toFixed(2)));
-
-          let maxPeak = runningEquity;
-          let maxDrawdownPct = 0;
+          let chartLabels = ['Start'], chartData = [Number(runningEquity.toFixed(2))];
+          let maxPeak = runningEquity, maxDrawdownPct = 0;
 
           filteredPos.forEach((p, idx) => {
-            let prof = Number(p.profit || 0);
-            runningEquity += prof;
+            runningEquity += Number(p.profit || 0);
             chartLabels.push(`#${idx+1}`);
             chartData.push(Number(runningEquity.toFixed(2)));
-
             if (runningEquity > maxPeak) maxPeak = runningEquity;
             let currentDD = maxPeak > 0 ? ((maxPeak - runningEquity) / maxPeak) * 100 : 0;
             if (currentDD > maxDrawdownPct) maxDrawdownPct = currentDD;
           });
 
           let profitFactor = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? 99.99 : 0.00);
-          
           document.getElementById('val-profit-factor').innerText = profitFactor.toFixed(2);
           document.getElementById('val-drawdown').innerText = `${maxDrawdownPct.toFixed(2)}%`;
 
           renderEquityChart(chartLabels, chartData);
-
         } else {
           emptyClosedTable(totalBalance);
         }
-
       } else {
         emptyClosedTable(totalBalance);
       }
@@ -492,15 +508,14 @@
     function emptyClosedTable(balance) {
       document.getElementById('table-closed-positions').innerHTML = `<tr><td colspan="8" class="p-3 text-center text-gray-500">Tidak ada transaksi pada periode ini</td></tr>`;
       document.getElementById('val-start-balance').innerText = `$${balance.toFixed(2)}`;
-      document.getElementById('val-period-profit').innerText = "$0.00";
-      document.getElementById('val-profit-factor').innerText = "0.00";
-      document.getElementById('val-drawdown').innerText = "0.00%";
+      document.getElementById('val-period-profit').innerText = "\$0.00";
+      document.getElementById('stat-winrate').innerText = "0.0%";
+      document.getElementById('stat-total-trades').innerText = "0";
       renderEquityChart(['Start'], [balance]);
     }
 
     function renderEquityChart(labels, dataPoints) {
       const ctx = document.getElementById('equityChart').getContext('2d');
-      
       if (equityChartInstance) {
         equityChartInstance.data.labels = labels;
         equityChartInstance.data.datasets[0].data = dataPoints;
@@ -511,15 +526,13 @@
           data: {
             labels: labels,
             datasets: [{
-              label: 'Pertumbuhan Equity ($)',
+              label: 'Pertumbuhan Equity (\$)',
               data: dataPoints,
               borderColor: '#3b82f6',
               backgroundColor: 'rgba(59, 130, 246, 0.1)',
               borderWidth: 2,
               fill: true,
-              tension: 0.2,
-              pointRadius: 3,
-              pointHoverRadius: 5
+              tension: 0.2
             }]
           },
           options: {
@@ -529,9 +542,7 @@
               x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
               y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } }
             },
-            plugins: {
-              legend: { labels: { color: '#fff' } }
-            }
+            plugins: { legend: { labels: { color: '#fff' } } }
           }
         });
       }
@@ -539,18 +550,13 @@
 
     function downloadReportPDF() {
       const element = document.getElementById('pdf-content');
-      const periodName = document.getElementById('period-select').value;
-      
-      const opt = {
-        margin:       [0.3, 0.3, 0.3, 0.3],
-        filename:     `Laporan_MT5_${periodName}_${new Date().toISOString().slice(0,10)}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, backgroundColor: '#111827', useCORS: true },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' },
-        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
-      };
-
-      html2pdf().set(opt).from(element).save();
+      html2pdf().set({
+        margin: [0.3, 0.3, 0.3, 0.3],
+        filename: `Laporan_MT5_${new Date().toISOString().slice(0,10)}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, backgroundColor: '#111827', useCORS: true },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+      }).from(element).save();
     }
 
     initAuth();
